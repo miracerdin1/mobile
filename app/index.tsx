@@ -80,6 +80,7 @@ export default function Index() {
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [showClipboardPrompt, setShowClipboardPrompt] = useState(false);
   const [savingClipboard, setSavingClipboard] = useState(false);
+  const [clipboardFolderId, setClipboardFolderId] = useState<string | null>(null);
 
   // Custom Folders & Collections State
   const [folders, setFolders] = useState<any[]>([]);
@@ -275,10 +276,14 @@ export default function Index() {
     if (!clipboardUrl) return;
     setSavingClipboard(true);
     try {
-      await axios.post(`${Config.API_URL}/api/links`, { url: clipboardUrl });
+      await axios.post(`${Config.API_URL}/api/links`, {
+        url: clipboardUrl,
+        folderId: clipboardFolderId,
+      });
       await AsyncStorage.setItem("lastSavedClipboardUrl", clipboardUrl);
       setShowClipboardPrompt(false);
       setClipboardUrl(null);
+      setClipboardFolderId(null);
       fetchLinks(); // Refresh the list
     } catch (error) {
       Alert.alert("Error", "Failed to save link from clipboard");
@@ -293,6 +298,7 @@ export default function Index() {
     }
     setShowClipboardPrompt(false);
     setClipboardUrl(null);
+    setClipboardFolderId(null);
   };
 
   useFocusEffect(
@@ -652,6 +658,51 @@ export default function Index() {
             <Text variant="bodyMedium" numberOfLines={1} style={styles.clipboardUrlText}>
               {clipboardUrl}
             </Text>
+
+            {folders.length > 0 && (
+              <View style={{ marginBottom: 12 }}>
+                <Text variant="labelSmall" style={{ marginBottom: 6, fontWeight: "bold", color: "#666" }}>
+                  Klasör Seçin (İsteğe Bağlı):
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <Chip
+                    selected={clipboardFolderId === null}
+                    onPress={() => setClipboardFolderId(null)}
+                    style={{ marginRight: 6, height: 32, backgroundColor: clipboardFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
+                    textStyle={{ fontSize: 11, color: clipboardFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+                    showSelectedOverlay
+                    compact
+                  >
+                    Yok
+                  </Chip>
+                  {folders.map((f) => (
+                    <Chip
+                      key={f._id}
+                      selected={clipboardFolderId === f._id}
+                      onPress={() => setClipboardFolderId(f._id)}
+                      style={{
+                        marginRight: 6,
+                        height: 32,
+                        backgroundColor: clipboardFolderId === f._id ? f.color : "#f5f5f5",
+                        borderColor: f.color,
+                        borderWidth: clipboardFolderId === f._id ? 0 : 1,
+                      }}
+                      textStyle={{
+                        color: clipboardFolderId === f._id ? "#fff" : "#333",
+                        fontWeight: clipboardFolderId === f._id ? "bold" : "normal",
+                        fontSize: 11
+                      }}
+                      showSelectedOverlay
+                      compact
+                      icon={f.icon || "folder"}
+                    >
+                      {f.name}
+                    </Chip>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             <View style={styles.clipboardActions}>
               <Button mode="text" onPress={handleDismissClipboard} disabled={savingClipboard}>
                 İptal
