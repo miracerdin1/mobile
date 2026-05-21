@@ -2,7 +2,7 @@ import axios from "axios";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Chip, HelperText, Text, TextInput, useTheme } from "react-native-paper";
+import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../constants/Config";
 
 export default function AddLink() {
@@ -11,6 +11,7 @@ export default function AddLink() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   
   // Folders State
   const [folders, setFolders] = useState<any[]>([]);
@@ -51,6 +52,7 @@ export default function AddLink() {
       const response = await axios.post(`${Config.API_URL}/api/links`, {
         url,
         folderId: selectedFolderId,
+        isPublic,
       });
       console.log("Response:", response.data);
 
@@ -118,6 +120,18 @@ export default function AddLink() {
             </Chip>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <Text variant="labelLarge" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
+          <Text variant="bodySmall" style={{ color: "#666" }}>Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.</Text>
+        </View>
+        <Switch
+          value={isPublic}
+          onValueChange={setIsPublic}
+          color={theme.colors.primary}
+        />
       </View>
 
       <Button

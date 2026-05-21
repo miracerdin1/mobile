@@ -2,7 +2,7 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Chip, Text, TextInput, useTheme } from "react-native-paper";
+import { Button, Chip, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../../constants/Config";
 
 export default function EditLink() {
@@ -15,6 +15,7 @@ export default function EditLink() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
 
   // Folders State
   const [folders, setFolders] = useState<any[]>([]);
@@ -46,6 +47,7 @@ export default function EditLink() {
         setDescription(link.description || "");
         setUrl(link.url || "");
         setSelectedFolderId(link.folderId || null);
+        setIsPublic(link.isPublic || false);
       } else {
         Alert.alert("Hata", "Link bulunamadı");
         router.back();
@@ -65,6 +67,7 @@ export default function EditLink() {
         description,
         url,
         folderId: selectedFolderId === null ? "null" : selectedFolderId,
+        isPublic,
       });
       router.back();
     } catch (err) {
@@ -142,6 +145,18 @@ export default function EditLink() {
             </Chip>
           ))}
         </ScrollView>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <Text variant="labelLarge" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
+          <Text variant="bodySmall" style={{ color: "#666" }}>Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.</Text>
+        </View>
+        <Switch
+          value={isPublic}
+          onValueChange={setIsPublic}
+          color={theme.colors.primary}
+        />
       </View>
 
       <Button
