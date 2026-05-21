@@ -1628,12 +1628,12 @@ export default function Index() {
                 ) : (
                   <View style={{ marginBottom: 16 }}>
                     {Platform.OS === "ios" ? (
-                      <View style={{ alignItems: "center", marginBottom: 12, backgroundColor: "#f5f3ff", borderRadius: 14, padding: 8 }}>
-                        <Text variant="labelSmall" style={{ color: "#6200ee", fontWeight: "bold", marginBottom: 6 }}>Tarih & Saat Seçin:</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, backgroundColor: "#f5f3ff", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 }}>
+                        <Text variant="labelMedium" style={{ color: "#6200ee", fontWeight: "bold" }}>Tarih & Saat Seçin:</Text>
                         <DateTimePicker
                           value={customReminderDate}
                           mode="datetime"
-                          display="inline"
+                          display="compact"
                           themeVariant="light"
                           onChange={(event, date) => {
                             if (date) setCustomReminderDate(date);
