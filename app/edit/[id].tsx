@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -22,11 +23,22 @@ export default function EditLink() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      Promise.all([fetchLinkDetails(), fetchFolders()]).finally(() => {
+    const init = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (token) {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        if (id) {
+          await Promise.all([fetchLinkDetails(), fetchFolders()]);
+        }
+      } catch (err) {
+        console.error("Initialization error in EditLink:", err);
+      } finally {
         setFetching(false);
-      });
-    }
+      }
+    };
+    init();
   }, [id]);
 
   const fetchFolders = async () => {
