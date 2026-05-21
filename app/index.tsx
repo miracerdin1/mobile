@@ -1710,24 +1710,25 @@ export default function Index() {
           </Dialog.Actions>
         </Dialog>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={customReminderDate}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-            minimumDate={new Date()}
-          />
-        )}
-        {showTimePicker && (
-          <DateTimePicker
-            value={customReminderDate}
-            mode="time"
-            display="default"
-            onChange={onChangeTime}
-          />
-        )}
       </Portal>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={customReminderDate}
+          mode="date"
+          display="default"
+          onChange={onChangeDate}
+          minimumDate={new Date()}
+        />
+      )}
+      {showTimePicker && (
+        <DateTimePicker
+          value={customReminderDate}
+          mode="time"
+          display="default"
+          onChange={onChangeTime}
+        />
+      )}
 
       {loading && links.length === 0 ? (
         <View style={styles.center}>
