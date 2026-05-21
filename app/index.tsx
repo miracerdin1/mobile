@@ -519,24 +519,35 @@ export default function Index() {
     }
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: "row", marginRight: -8 }}>
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "rgba(0, 0, 0, 0.05)",
+          borderRadius: 20,
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          marginRight: 8,
+        }}>
           <IconButton
             icon="earth"
-            size={22}
+            size={20}
             onPress={() => setBioSettingsVisible(true)}
             iconColor="#333"
+            style={{ margin: 2 }}
           />
           <IconButton
             icon="share-variant"
-            size={22}
+            size={20}
             onPress={handleShareProfile}
             iconColor="#333"
+            style={{ margin: 2 }}
           />
           <IconButton
             icon="logout"
-            size={22}
+            size={20}
             onPress={handleLogout}
             iconColor="#d32f2f"
+            style={{ margin: 2 }}
           />
         </View>
       ),
