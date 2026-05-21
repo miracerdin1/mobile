@@ -19,10 +19,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Config from "../constants/Config";
-
-interface AuthScreenProps {
-  onAuthSuccess: (token: string, user: any) => void;
-}
+import { AuthScreenProps } from "../types";
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const paperTheme = useTheme();

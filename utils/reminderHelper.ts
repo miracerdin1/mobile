@@ -83,11 +83,13 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 }
 
+import { Link } from "../types";
+
 /**
  * Schedules a local push notification (or logs virtual scheduling for browser platforms)
  */
 export async function scheduleLocalNotification(
-  link: { title?: string; url: string },
+  link: Link,
   delaySeconds: number,
   onWebNotificationTrigger?: (message: string, url: string) => void,
 ): Promise<string> {

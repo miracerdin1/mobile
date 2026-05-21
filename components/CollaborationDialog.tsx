@@ -8,18 +8,7 @@ import {
   Button,
 } from "react-native-paper";
 
-interface CollaborationDialogProps {
-  visible: boolean;
-  onDismiss: () => void;
-  currentFolder: any;
-  currentUser: any;
-  inviteUsernameOrEmail: string;
-  setInviteUsernameOrEmail: (val: string) => void;
-  inviting: boolean;
-  onAddCollaborator: () => Promise<void>;
-  onRemoveCollaborator: (colUserId: string) => Promise<void>;
-  onLeaveFolder: () => Promise<void>;
-}
+import { CollaborationDialogProps, User } from "../types";
 
 export default function CollaborationDialog({
   visible,
@@ -78,7 +67,7 @@ export default function CollaborationDialog({
               </Text>
             ) : (
               currentFolder.collaborators &&
-              currentFolder.collaborators.map((col: any) => {
+              currentFolder.collaborators.map((col: User) => {
                 const isCurrentUserOwner =
                   currentFolder.owner?._id === currentUser?.id;
 

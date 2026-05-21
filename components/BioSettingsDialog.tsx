@@ -8,21 +8,7 @@ import {
   Button,
 } from "react-native-paper";
 
-interface BioSettingsDialogProps {
-  visible: boolean;
-  onDismiss: () => void;
-  profileName: string;
-  setProfileName: (val: string) => void;
-  profileBio: string;
-  setProfileBio: (val: string) => void;
-  profileAvatarUrl: string;
-  setProfileAvatarUrl: (val: string) => void;
-  profileTheme: string;
-  setProfileTheme: (val: string) => void;
-  savingProfile: boolean;
-  onSave: () => Promise<void>;
-  theme: any;
-}
+import { BioSettingsDialogProps } from "../types";
 
 const THEME_PRESETS = [
   {

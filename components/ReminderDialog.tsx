@@ -10,28 +10,7 @@ import {
 } from "react-native-paper";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-interface ReminderDialogProps {
-  visible: boolean;
-  onDismiss: () => void;
-  selectedReminderLink: any;
-  customReminderDate: Date;
-  setCustomReminderDate: (d: Date) => void;
-  showDatePicker: boolean;
-  setShowDatePicker: (b: boolean) => void;
-  showTimePicker: boolean;
-  setShowTimePicker: (b: boolean) => void;
-  webCustomDateTime: string;
-  setWebCustomDateTime: (s: string) => void;
-  reminders: { linkId: string; notificationId: string }[];
-  smartRemindersEnabled: boolean;
-  onScheduleReminder: (
-    link: any,
-    type: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant" | "custom",
-    customDate?: Date,
-  ) => Promise<void>;
-  onCancelReminder: (linkId: string) => Promise<void>;
-  onToggleSmartReminders: (val: boolean) => Promise<void>;
-}
+import { ReminderDialogProps } from "../types";
 
 export default function ReminderDialog({
   visible,

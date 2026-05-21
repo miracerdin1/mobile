@@ -48,7 +48,6 @@ import CollaborationDialog from "../components/CollaborationDialog";
 import ReminderDialog from "../components/ReminderDialog";
 import ClipboardPrompt from "../components/ClipboardPrompt";
 
-// Import helper functions
 import {
   calculateReminderDelay,
   requestNotificationPermissions,
@@ -56,6 +55,7 @@ import {
   cancelLocalNotification,
   scheduleSmartWeeklyNotification,
 } from "../utils/reminderHelper";
+import { User, Folder, Link, Reminder } from "../types";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -85,11 +85,11 @@ export default function Index() {
 
   // Authentication State
   const [token, setToken] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // General App State
-  const [links, setLinks] = useState<any[]>([]);
+  const [links, setLinks] = useState<Link[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -108,11 +108,11 @@ export default function Index() {
   );
 
   // Custom Folders & Collections State
-  const [folders, setFolders] = useState<any[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [manageFoldersVisible, setManageFoldersVisible] = useState(false);
   const [folderFormVisible, setFolderFormVisible] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<any | null>(null);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [folderName, setFolderName] = useState("");
   const [folderColor, setFolderColor] = useState("#6200ee");
   const [folderIcon, setFolderIcon] = useState("folder");
@@ -135,11 +135,9 @@ export default function Index() {
   const [inviting, setInviting] = useState(false);
 
   // Reminder / Notification State
-  const [reminders, setReminders] = useState<
-    { linkId: string; notificationId: string }[]
-  >([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
-  const [selectedReminderLink, setSelectedReminderLink] = useState<any | null>(
+  const [selectedReminderLink, setSelectedReminderLink] = useState<Link | null>(
     null,
   );
   const [smartRemindersEnabled, setSmartRemindersEnabled] = useState(false);

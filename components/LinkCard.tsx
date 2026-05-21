@@ -3,21 +3,7 @@ import { Animated, Image, Linking, Share, StyleSheet, View } from "react-native"
 import { Swipeable } from "react-native-gesture-handler";
 import { Card, IconButton, Text, useTheme } from "react-native-paper";
 
-interface LinkCardProps {
-  url: string;
-  title?: string;
-  description?: string;
-  imageUrl?: string;
-  siteName?: string;
-  category?: string;
-  folderName?: string;
-  folderColor?: string;
-  folderIcon?: string;
-  onDelete?: () => void;
-  onEdit?: () => void;
-  onRemind?: () => void;
-  hasReminder?: boolean;
-}
+import { LinkCardProps } from "../types";
 
 export default function LinkCard({
   url,
