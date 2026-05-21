@@ -10,6 +10,9 @@ interface LinkCardProps {
   imageUrl?: string;
   siteName?: string;
   category?: string;
+  folderName?: string;
+  folderColor?: string;
+  folderIcon?: string;
   onDelete?: () => void;
   onEdit?: () => void;
 }
@@ -20,6 +23,9 @@ export default function LinkCard({
   description,
   imageUrl,
   siteName,
+  folderName,
+  folderColor,
+  folderIcon,
   onDelete,
   onEdit,
 }: LinkCardProps) {
@@ -82,10 +88,23 @@ export default function LinkCard({
               {siteName && (
                 <Text
                   variant="labelSmall"
-                  style={{ color: theme.colors.primary }}
+                  style={{ color: theme.colors.primary, marginRight: 8 }}
                 >
                   {siteName.toUpperCase()}
                 </Text>
+              )}
+              {folderName && (
+                <View style={[styles.folderBadge, { backgroundColor: folderColor || theme.colors.primary }]}>
+                  <IconButton
+                    icon={folderIcon || "folder"}
+                    size={10}
+                    iconColor="white"
+                    style={{ margin: 0, padding: 0, width: 12, height: 12 }}
+                  />
+                  <Text style={styles.folderBadgeText}>
+                    {folderName}
+                  </Text>
+                </View>
               )}
               <View style={{ flex: 1 }} />
               {onEdit && (
@@ -149,6 +168,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 4,
     marginTop: -4,
+  },
+  folderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    height: 18,
+  },
+  folderBadgeText: {
+    color: "white",
+    fontSize: 9,
+    fontWeight: "bold",
+    marginLeft: 2,
   },
   title: {
     fontWeight: "bold",

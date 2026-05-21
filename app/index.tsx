@@ -24,6 +24,7 @@ import {
   Portal,
   Searchbar,
   Text,
+  TextInput,
   useTheme,
 } from "react-native-paper";
 import LinkCard from "../components/LinkCard";
@@ -36,6 +37,30 @@ const DEFAULT_CATEGORIES = [
   "Product",
   "Social",
   "Other",
+];
+
+const FOLDER_COLORS = [
+  "#6200ee", // Purple
+  "#ff5722", // Deep Orange
+  "#2e7d32", // Emerald Green
+  "#008080", // Teal
+  "#d32f2f", // Sunset Red
+  "#1976d2", // Ocean Blue
+  "#fbc02d", // Gold
+  "#e91e63", // Rose/Pink
+];
+
+const FOLDER_ICONS = [
+  "folder",
+  "star",
+  "heart",
+  "briefcase",
+  "book-open-variant",
+  "cart",
+  "gamepad-variant",
+  "music",
+  "lightbulb",
+  "code-tags",
 ];
 
 export default function Index() {
@@ -55,6 +80,16 @@ export default function Index() {
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [showClipboardPrompt, setShowClipboardPrompt] = useState(false);
   const [savingClipboard, setSavingClipboard] = useState(false);
+
+  // Custom Folders & Collections State
+  const [folders, setFolders] = useState<any[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [manageFoldersVisible, setManageFoldersVisible] = useState(false);
+  const [folderFormVisible, setFolderFormVisible] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<any | null>(null);
+  const [folderName, setFolderName] = useState("");
+  const [folderColor, setFolderColor] = useState("#6200ee");
+  const [folderIcon, setFolderIcon] = useState("folder");
 
   const checkClipboard = async () => {
     try {
@@ -141,6 +176,69 @@ export default function Index() {
     }
   };
 
+  const fetchFolders = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      setFolders(response.data);
+    } catch (err) {
+      console.error("Fetch folders error:", err);
+    }
+  };
+
+  const handleCreateOrUpdateFolder = async () => {
+    if (!folderName.trim()) {
+      Alert.alert("Hata", "Klasör adı boş olamaz");
+      return;
+    }
+
+    try {
+      if (editingFolder) {
+        const response = await axios.put(`${Config.API_URL}/api/folders/${editingFolder._id}`, {
+          name: folderName,
+          color: folderColor,
+          icon: folderIcon,
+        });
+        setFolders((prev) => prev.map((f) => f._id === editingFolder._id ? response.data : f));
+      } else {
+        const response = await axios.post(`${Config.API_URL}/api/folders`, {
+          name: folderName,
+          color: folderColor,
+          icon: folderIcon,
+        });
+        setFolders((prev) => [...prev, response.data]);
+      }
+      setFolderFormVisible(false);
+      setFolderName("");
+      setFolderColor("#6200ee");
+      setFolderIcon("folder");
+      setEditingFolder(null);
+    } catch (error) {
+      Alert.alert("Hata", "Klasör kaydedilemedi");
+    }
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    Alert.alert("Klasörü Sil", "Bu klasörü silmek istediğinize emin misiniz? Klasörün içindeki linkler silinmeyecek, sadece klasörsüz kalacaktır.", [
+      { text: "İptal", style: "cancel" },
+      {
+        text: "Sil",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await axios.delete(`${Config.API_URL}/api/folders/${id}`);
+            setFolders((prev) => prev.filter((f) => f._id !== id));
+            if (selectedFolderId === id) {
+              setSelectedFolderId(null);
+            }
+            fetchLinks(); // Reload links to reflect unassigned status
+          } catch (error) {
+            Alert.alert("Hata", "Klasör silinemedi");
+          }
+        },
+      },
+    ]);
+  };
+
   const deleteLinkItem = async (id: string) => {
     try {
       await axios.delete(`${Config.API_URL}/api/links/${id}`);
@@ -169,7 +267,7 @@ export default function Index() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchLinks();
+    await Promise.all([fetchLinks(), fetchFolders()]);
     setRefreshing(false);
   };
 
@@ -200,7 +298,7 @@ export default function Index() {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      fetchLinks().finally(() => setLoading(false));
+      Promise.all([fetchLinks(), fetchFolders()]).finally(() => setLoading(false));
     }, [])
   );
 
@@ -208,7 +306,10 @@ export default function Index() {
     const matchesCategory =
       selectedCategory === "All" || link.category === selectedCategory;
 
-    if (searchQuery.trim() === "") return matchesCategory;
+    const matchesFolder =
+      selectedFolderId === null || link.folderId === selectedFolderId;
+
+    if (searchQuery.trim() === "") return matchesCategory && matchesFolder;
 
     const query = searchQuery.toLocaleLowerCase("tr-TR");
     const title = (link.title || "").toLocaleLowerCase("tr-TR");
@@ -220,12 +321,12 @@ export default function Index() {
       url.includes(query) ||
       description.includes(query);
 
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesFolder && matchesSearch;
   });
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingVertical: 8 }}>
+      <View style={{ paddingVertical: 8, backgroundColor: "white", elevation: 2 }}>
         <Searchbar
           placeholder="Search links..."
           onChangeText={setSearchQuery}
@@ -258,7 +359,68 @@ export default function Index() {
         </View>
       </View>
 
+      {/* Folders horizontal container */}
+      <View style={{ backgroundColor: "white", paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#333" }}>Klasörler</Text>
+          <Button icon="folder-edit-outline" compact mode="text" onPress={() => setManageFoldersVisible(true)}>
+            Yönet
+          </Button>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+        >
+          <Chip
+            selected={selectedFolderId === null}
+            onPress={() => setSelectedFolderId(null)}
+            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
+            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+            showSelectedOverlay
+            icon="folder-open"
+          >
+            Tümü
+          </Chip>
+          {folders.map((folder) => (
+            <Chip
+              key={folder._id}
+              selected={selectedFolderId === folder._id}
+              onPress={() => setSelectedFolderId(folder._id)}
+              style={{
+                marginRight: 8,
+                backgroundColor: selectedFolderId === folder._id ? folder.color : "#f5f5f5",
+                borderColor: folder.color,
+                borderWidth: selectedFolderId === folder._id ? 0 : 1,
+              }}
+              textStyle={{
+                color: selectedFolderId === folder._id ? "#fff" : "#333",
+                fontWeight: selectedFolderId === folder._id ? "bold" : "normal"
+              }}
+              showSelectedOverlay
+              icon={folder.icon || "folder"}
+            >
+              {folder.name}
+            </Chip>
+          ))}
+          <Chip
+            onPress={() => {
+              setEditingFolder(null);
+              setFolderName("");
+              setFolderColor("#6200ee");
+              setFolderIcon("folder");
+              setFolderFormVisible(true);
+            }}
+            style={{ backgroundColor: "#f0f0f0" }}
+            icon="plus"
+          >
+            Yeni Ekle
+          </Chip>
+        </ScrollView>
+      </View>
+
       <Portal>
+        {/* Reorder Categories Dialog */}
         <Dialog
           visible={manageCategoriesVisible}
           onDismiss={() => setManageCategoriesVisible(false)}
@@ -303,6 +465,140 @@ export default function Index() {
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        {/* Manage Folders Dialog */}
+        <Dialog
+          visible={manageFoldersVisible}
+          onDismiss={() => setManageFoldersVisible(false)}
+        >
+          <Dialog.Title>Klasörleri Yönet</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {folders.length === 0 ? (
+                <Text style={{ textAlign: "center", marginVertical: 20, color: "#666" }}>Henüz klasör oluşturulmadı.</Text>
+              ) : (
+                folders.map((folder) => (
+                  <View
+                    key={folder._id}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
+                      paddingVertical: 4,
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: "#eee"
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <IconButton
+                        icon={folder.icon || "folder"}
+                        size={20}
+                        iconColor="white"
+                        style={{ backgroundColor: folder.color || "#6200ee", marginRight: 8, margin: 0 }}
+                      />
+                      <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row" }}>
+                      <IconButton
+                        icon="pencil"
+                        size={20}
+                        onPress={() => {
+                          setEditingFolder(folder);
+                          setFolderName(folder.name);
+                          setFolderColor(folder.color || "#6200ee");
+                          setFolderIcon(folder.icon || "folder");
+                          setFolderFormVisible(true);
+                        }}
+                      />
+                      <IconButton
+                        icon="delete"
+                        size={20}
+                        iconColor="#d32f2f"
+                        onPress={() => handleDeleteFolder(folder._id)}
+                      />
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+            <Button
+              mode="contained"
+              icon="plus"
+              onPress={() => {
+                setEditingFolder(null);
+                setFolderName("");
+                setFolderColor("#6200ee");
+                setFolderIcon("folder");
+                setFolderFormVisible(true);
+              }}
+              style={{ marginTop: 16 }}
+            >
+              Yeni Klasör Ekle
+            </Button>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setManageFoldersVisible(false)}>Kapat</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Create/Edit Folder Form Dialog */}
+        <Dialog
+          visible={folderFormVisible}
+          onDismiss={() => setFolderFormVisible(false)}
+        >
+          <Dialog.Title>{editingFolder ? "Klasörü Düzenle" : "Yeni Klasör Oluştur"}</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Klasör Adı"
+              value={folderName}
+              onChangeText={setFolderName}
+              mode="outlined"
+              style={{ marginBottom: 16 }}
+            />
+            
+            <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>Renk Seçin</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 16, justifyContent: "space-between" }}>
+              {FOLDER_COLORS.map((c) => (
+                <View
+                  key={c}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: c,
+                    margin: 4,
+                    borderWidth: folderColor === c ? 3 : 0,
+                    borderColor: "#333",
+                  }}
+                  onTouchEnd={() => setFolderColor(c)}
+                />
+              ))}
+            </View>
+
+            <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>İkon Seçin</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+              {FOLDER_ICONS.map((i) => (
+                <IconButton
+                  key={i}
+                  icon={i}
+                  size={24}
+                  selected={folderIcon === i}
+                  onPress={() => setFolderIcon(i)}
+                  iconColor={folderIcon === i ? "white" : "#666"}
+                  style={{
+                    backgroundColor: folderIcon === i ? folderColor : "#f0f0f0",
+                    marginRight: 8,
+                  }}
+                />
+              ))}
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setFolderFormVisible(false)}>İptal</Button>
+            <Button mode="contained" onPress={handleCreateOrUpdateFolder}>Kaydet</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
 
       {loading && links.length === 0 ? (
@@ -317,18 +613,24 @@ export default function Index() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          renderItem={({ item }) => (
-            <LinkCard
-              url={item.url}
-              title={item.title}
-              description={item.description}
-              imageUrl={item.imageUrl}
-              siteName={item.siteName}
-              category={item.category}
-              onDelete={() => handleDelete(item._id)}
-              onEdit={() => router.push(`/edit/${item._id}`)}
-            />
-          )}
+          renderItem={({ item }) => {
+            const folder = folders.find((f) => f._id === item.folderId);
+            return (
+              <LinkCard
+                url={item.url}
+                title={item.title}
+                description={item.description}
+                imageUrl={item.imageUrl}
+                siteName={item.siteName}
+                category={item.category}
+                folderName={folder?.name}
+                folderColor={folder?.color}
+                folderIcon={folder?.icon}
+                onDelete={() => handleDelete(item._id)}
+                onEdit={() => router.push(`/edit/${item._id}`)}
+              />
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.center}>
               <Text variant="bodyLarge">No links found.</Text>
