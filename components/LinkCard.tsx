@@ -89,51 +89,59 @@ export default function LinkCard({
           {/* Right Content */}
           <View style={styles.content}>
             <View style={styles.header}>
-              {siteName && (
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.primary, marginRight: 8 }}
-                >
-                  {siteName.toUpperCase()}
-                </Text>
-              )}
-              {folderName && (
-                <View style={[styles.folderBadge, { backgroundColor: folderColor || theme.colors.primary }]}>
-                  <IconButton
-                    icon={folderIcon || "folder"}
-                    size={10}
-                    iconColor="white"
-                    style={{ margin: 0, padding: 0, width: 12, height: 12 }}
-                  />
-                  <Text style={styles.folderBadgeText}>
-                    {folderName}
+              {/* Left Side: Site Name & Folder Badge (Flex-constrained to avoid pushing icons off-screen) */}
+              <View style={{ flex: 1, flexDirection: "row", alignItems: "center", marginRight: 8, overflow: "hidden" }}>
+                {siteName && (
+                  <Text
+                    variant="labelSmall"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{ color: theme.colors.primary, marginRight: 8, maxWidth: "55%", fontWeight: "600" }}
+                  >
+                    {siteName.toUpperCase()}
                   </Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }} />
-              {onRemind && (
+                )}
+                {folderName && (
+                  <View style={[styles.folderBadge, { backgroundColor: folderColor || theme.colors.primary, maxWidth: "45%" }]}>
+                    <IconButton
+                      icon={folderIcon || "folder"}
+                      size={10}
+                      iconColor="white"
+                      style={{ margin: 0, padding: 0, width: 12, height: 12 }}
+                    />
+                    <Text style={styles.folderBadgeText} numberOfLines={1} ellipsizeMode="tail">
+                      {folderName}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Right Side: Action Icons (Always visible) */}
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {onRemind && (
+                  <IconButton
+                    icon={hasReminder ? "bell" : "bell-outline"}
+                    size={20}
+                    onPress={onRemind}
+                    iconColor={hasReminder ? "#ffb300" : undefined}
+                    style={{ margin: 0, marginRight: -8 }}
+                  />
+                )}
+                {onEdit && (
+                  <IconButton
+                    icon="pencil-outline"
+                    size={20}
+                    onPress={onEdit}
+                    style={{ margin: 0, marginRight: -8 }}
+                  />
+                )}
                 <IconButton
-                  icon={hasReminder ? "bell" : "bell-outline"}
+                  icon="share-variant"
                   size={20}
-                  onPress={onRemind}
-                  iconColor={hasReminder ? "#ffb300" : undefined}
+                  onPress={handleShare}
                   style={{ margin: 0, marginRight: -8 }}
                 />
-              )}
-              {onEdit && (
-                <IconButton
-                  icon="pencil-outline"
-                  size={20}
-                  onPress={onEdit}
-                  style={{ margin: 0, marginRight: -8 }}
-                />
-              )}
-              <IconButton
-                icon="share-variant"
-                size={20}
-                onPress={handleShare}
-                style={{ margin: 0, marginRight: -8 }}
-              />
+              </View>
             </View>
 
             <Text variant="titleMedium" numberOfLines={2} style={styles.title}>
