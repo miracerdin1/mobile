@@ -575,7 +575,7 @@ export default function Index() {
             borderWidth: 1,
             borderColor: "rgba(0, 0, 0, 0.08)",
             paddingHorizontal: 6,
-            height: 40,
+            height: 36,
             alignSelf: "center",
             gap: 6,
             shadowColor: "#000",
@@ -593,8 +593,8 @@ export default function Index() {
             style={{
               margin: 0,
               padding: 0,
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               justifyContent: "center",
               alignItems: "center",
             }}
@@ -607,8 +607,8 @@ export default function Index() {
             style={{
               margin: 0,
               padding: 0,
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               justifyContent: "center",
               alignItems: "center",
             }}
@@ -621,8 +621,8 @@ export default function Index() {
             style={{
               margin: 0,
               padding: 0,
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               justifyContent: "center",
               alignItems: "center",
             }}
