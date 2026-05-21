@@ -1561,15 +1561,24 @@ export default function Index() {
 
                 {Platform.OS === "web" ? (
                   <View style={{ marginBottom: 16 }}>
-                    <TextInput
-                      label="Tarih ve Saat Seçin"
-                      mode="outlined"
+                    <input
+                      type="datetime-local"
                       value={webCustomDateTime}
-                      onChangeText={setWebCustomDateTime}
-                      activeOutlineColor="#6200ee"
-                      right={<TextInput.Icon icon="calendar-clock" color="#6200ee" />}
-                      style={{ marginBottom: 10, backgroundColor: "white" }}
-                      {...({ type: "datetime-local" } as any)}
+                      onChange={(e) => setWebCustomDateTime(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px 14px",
+                        fontSize: "15px",
+                        borderRadius: "12px",
+                        border: "1.5px solid #6200ee",
+                        backgroundColor: "#ffffff",
+                        color: "#1a1a2e",
+                        fontFamily: "sans-serif",
+                        outline: "none",
+                        marginBottom: "12px",
+                        boxSizing: "border-box",
+                      }}
+                      min={new Date().toISOString().slice(0, 16)}
                     />
                     <Button
                       mode="contained"
