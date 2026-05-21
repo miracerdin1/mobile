@@ -42,15 +42,17 @@ import {
   leaveFolderRoom,
 } from "../services/socket";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 const DEFAULT_CATEGORIES = [
   "All",
@@ -168,6 +170,19 @@ export default function Index() {
   useEffect(() => {
     const setupNotifications = async () => {
       try {
+        if (Platform.OS === "web") {
+          // On web, just restore stored states
+          const storedReminders = await AsyncStorage.getItem("activeReminders");
+          if (storedReminders) {
+            setReminders(JSON.parse(storedReminders));
+          }
+          const storedSmart = await AsyncStorage.getItem("smartRemindersEnabled");
+          if (storedSmart) {
+            setSmartRemindersEnabled(JSON.parse(storedSmart));
+          }
+          return;
+        }
+
         // Request Permissions
         const { status } = await Notifications.getPermissionsAsync();
         if (status !== "granted") {
@@ -192,18 +207,20 @@ export default function Index() {
 
     setupNotifications();
 
-    // Listener for when a user clicks on a notification
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const url = response.notification.request.content.data?.url;
-      if (typeof url === "string") {
-        console.log("[Notification Clicked] Opening URL:", url);
-        Linking.openURL(url).catch((err) => console.error("Failed to open URL from notification:", err));
-      }
-    });
+    if (Platform.OS !== "web") {
+      // Listener for when a user clicks on a notification
+      const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+        const url = response.notification.request.content.data?.url;
+        if (typeof url === "string") {
+          console.log("[Notification Clicked] Opening URL:", url);
+          Linking.openURL(url).catch((err) => console.error("Failed to open URL from notification:", err));
+        }
+      });
 
-    return () => {
-      responseSubscription.remove();
-    };
+      return () => {
+        responseSubscription.remove();
+      };
+    }
   }, []);
 
   const handleAuthSuccess = (newToken: string, newUser: any) => {
@@ -639,13 +656,15 @@ export default function Index() {
   // Reminder Actions (Daha Sonra Oku Hatırlatıcıları)
   const handleScheduleReminder = async (link: any, delayType: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant") => {
     try {
-      // 1. Request permissions first just in case
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== "granted") {
-        const req = await Notifications.requestPermissionsAsync();
-        if (req.status !== "granted") {
-          Alert.alert("İzin Gerekli", "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.");
-          return;
+      // 1. Request permissions first just in case (Native only)
+      if (Platform.OS !== "web") {
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== "granted") {
+          const req = await Notifications.requestPermissionsAsync();
+          if (req.status !== "granted") {
+            Alert.alert("İzin Gerekli", "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.");
+            return;
+          }
         }
       }
 
@@ -684,22 +703,34 @@ export default function Index() {
 
       // 3. Cancel any existing reminder for this specific link first
       const existing = reminders.find((r) => r.linkId === link._id);
-      if (existing) {
+      if (existing && Platform.OS !== "web") {
         await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
       }
 
-      // 4. Schedule local notification
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Daha Sonra Oku 🔔",
-          body: `Kaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?`,
-          data: { url: link.url },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: delaySeconds,
-        },
-      });
+      // 4. Schedule local notification / Web simulated notification
+      let notificationId = "";
+      if (Platform.OS === "web") {
+        notificationId = `web-${Date.now()}-${Math.random()}`;
+        // Standard Web simulator using setTimeout
+        setTimeout(() => {
+          const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?\n\nLink: ${link.url}`;
+          if (confirm(message)) {
+            Linking.openURL(link.url).catch((err) => console.error("Failed to open URL:", err));
+          }
+        }, delaySeconds * 1000);
+      } else {
+        notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Daha Sonra Oku 🔔",
+            body: `Kaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?`,
+            data: { url: link.url },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: delaySeconds,
+          },
+        });
+      }
 
       // 5. Update state and AsyncStorage
       const updatedReminders = reminders.filter((r) => r.linkId !== link._id);
@@ -723,7 +754,9 @@ export default function Index() {
     try {
       const existing = reminders.find((r) => r.linkId === linkId);
       if (existing) {
-        await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+        if (Platform.OS !== "web") {
+          await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+        }
         
         const updated = reminders.filter((r) => r.linkId !== linkId);
         setReminders(updated);
@@ -745,25 +778,35 @@ export default function Index() {
 
       const smartNotificationId = await AsyncStorage.getItem("smartNotificationId");
       if (smartNotificationId) {
-        await Notifications.cancelScheduledNotificationAsync(smartNotificationId);
+        if (Platform.OS !== "web") {
+          await Notifications.cancelScheduledNotificationAsync(smartNotificationId);
+        }
         await AsyncStorage.removeItem("smartNotificationId");
       }
 
       if (enabled) {
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Haftalık Akıllı Hatırlatıcı 🔔",
-            body: "Pazartesi günü kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek ister misin?",
-            data: { url: Config.API_URL + "/bio" },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: 7 * 24 * 60 * 60,
-            repeats: true,
-          },
-        });
+        let notificationId = "";
+        if (Platform.OS === "web") {
+          notificationId = `web-smart-${Date.now()}`;
+          Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+        } else {
+          notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Haftalık Akıllı Hatırlatıcı 🔔",
+              body: "Pazartesi günü kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek ister misin?",
+              data: { url: Config.API_URL + "/bio" },
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+              seconds: 7 * 24 * 60 * 60,
+              repeats: true,
+            },
+          });
+        }
         await AsyncStorage.setItem("smartNotificationId", notificationId);
-        Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+        if (Platform.OS !== "web") {
+          Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+        }
       } else {
         Alert.alert("Devre Dışı Bırakıldı 🔕", "Akıllı okuma hatırlatıcıları kapatıldı.");
       }
