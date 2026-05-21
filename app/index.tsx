@@ -3,7 +3,6 @@ import axios from "axios";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
 import * as Notifications from "expo-notifications";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -16,22 +15,21 @@ import {
   StyleSheet,
   View,
   Share,
-  TouchableOpacity,
   Linking,
+  TouchableOpacity,
 } from "react-native";
 import {
   ActivityIndicator,
-  Button,
   Chip,
-  Dialog,
   FAB,
   IconButton,
   Portal,
   Searchbar,
   Text,
-  TextInput,
   useTheme,
-  Switch,
+  Dialog,
+  Button,
+  TextInput,
 } from "react-native-paper";
 import LinkCard from "../components/LinkCard";
 import Config from "../constants/Config";
@@ -42,6 +40,22 @@ import {
   joinFolderRoom,
   leaveFolderRoom,
 } from "../services/socket";
+
+// Import modular components
+import BioSettingsDialog from "../components/BioSettingsDialog";
+import FolderFormDialog, { FOLDER_COLORS, FOLDER_ICONS } from "../components/FolderFormDialog";
+import CollaborationDialog from "../components/CollaborationDialog";
+import ReminderDialog from "../components/ReminderDialog";
+import ClipboardPrompt from "../components/ClipboardPrompt";
+
+// Import helper functions
+import {
+  calculateReminderDelay,
+  requestNotificationPermissions,
+  scheduleLocalNotification,
+  cancelLocalNotification,
+  scheduleSmartWeeklyNotification,
+} from "../utils/reminderHelper";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -62,30 +76,6 @@ const DEFAULT_CATEGORIES = [
   "Product",
   "Social",
   "Other",
-];
-
-const FOLDER_COLORS = [
-  "#6200ee", // Purple
-  "#ff5722", // Deep Orange
-  "#2e7d32", // Emerald Green
-  "#008080", // Teal
-  "#d32f2f", // Sunset Red
-  "#1976d2", // Ocean Blue
-  "#fbc02d", // Gold
-  "#e91e63", // Rose/Pink
-];
-
-const FOLDER_ICONS = [
-  "folder",
-  "star",
-  "heart",
-  "briefcase",
-  "book-open-variant",
-  "cart",
-  "gamepad-variant",
-  "music",
-  "lightbulb",
-  "code-tags",
 ];
 
 export default function Index() {
@@ -805,108 +795,51 @@ export default function Index() {
     customDate?: Date,
   ) => {
     try {
-      // 1. Request permissions first just in case (Native only)
-      if (Platform.OS !== "web") {
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status !== "granted") {
-          const req = await Notifications.requestPermissionsAsync();
-          if (req.status !== "granted") {
-            Alert.alert(
-              "İzin Gerekli",
-              "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.",
-            );
-            return;
-          }
-        }
+      // 1. Request permissions (Native only)
+      const hasPermission = await requestNotificationPermissions();
+      if (!hasPermission) {
+        Alert.alert(
+          "İzin Gerekli",
+          "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.",
+        );
+        return;
       }
 
       // 2. Calculate delay in seconds
       let delaySeconds = 0;
       let delayText = "";
-
-      const now = new Date();
-      if (delayType === "instant") {
-        delaySeconds = 10; // 10 seconds (for instant testing!)
-        delayText = "10 saniye sonra";
-      } else if (delayType === "1hour") {
-        delaySeconds = 60 * 60; // 1 hour
-        delayText = "1 saat sonra";
-      } else if (delayType === "evening") {
-        const target = new Date();
-        target.setHours(20, 0, 0, 0);
-        if (target.getTime() <= now.getTime()) {
-          target.setDate(target.getDate() + 1);
-        }
-        delaySeconds = Math.max(
-          1,
-          Math.round((target.getTime() - now.getTime()) / 1000),
+      try {
+        const delayResult = calculateReminderDelay(delayType, customDate);
+        delaySeconds = delayResult.delaySeconds;
+        delayText = delayResult.delayText;
+      } catch (err: any) {
+        Alert.alert(
+          "Geçersiz Zaman",
+          err.message || "Lütfen gelecekteki bir tarih ve saat seçin.",
         );
-        delayText = "bu akşam saat 20:00'de";
-      } else if (delayType === "tomorrow") {
-        const target = new Date();
-        target.setDate(target.getDate() + 1);
-        target.setHours(9, 0, 0, 0);
-        delaySeconds = Math.max(
-          1,
-          Math.round((target.getTime() - now.getTime()) / 1000),
-        );
-        delayText = "yarın sabah saat 09:00'da";
-      } else if (delayType === "nextweek") {
-        const target = new Date();
-        target.setDate(target.getDate() + ((1 + 7 - target.getDay()) % 7 || 7));
-        target.setHours(9, 0, 0, 0);
-        delaySeconds = Math.max(
-          1,
-          Math.round((target.getTime() - now.getTime()) / 1000),
-        );
-        delayText = "gelecek Pazartesi sabah saat 09:00'da";
-      } else if (delayType === "custom" && customDate) {
-        const diffMs = customDate.getTime() - now.getTime();
-        if (diffMs <= 0) {
-          Alert.alert(
-            "Geçersiz Zaman",
-            "Lütfen gelecekteki bir tarih ve saat seçin.",
-          );
-          return;
-        }
-        delaySeconds = Math.max(1, Math.round(diffMs / 1000));
-        delayText = `${customDate.toLocaleDateString("tr-TR")} saat ${customDate.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} için`;
+        return;
       }
 
       // 3. Cancel any existing reminder for this specific link first
       const existing = reminders.find((r) => r.linkId === link._id);
-      if (existing && Platform.OS !== "web") {
-        await Notifications.cancelScheduledNotificationAsync(
-          existing.notificationId,
-        );
+      if (existing) {
+        await cancelLocalNotification(existing.notificationId);
       }
 
       // 4. Schedule local notification / Web simulated notification
-      let notificationId = "";
-      if (Platform.OS === "web") {
-        notificationId = `web-${Date.now()}-${Math.random()}`;
-        // Standard Web simulator using setTimeout
-        setTimeout(() => {
-          const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?\n\nLink: ${link.url}`;
-          if (confirm(message)) {
-            Linking.openURL(link.url).catch((err) =>
-              console.error("Failed to open URL:", err),
-            );
-          }
-        }, delaySeconds * 1000);
-      } else {
-        notificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "Daha Sonra Oku 🔔",
-            body: `Kaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?`,
-            data: { url: link.url },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: delaySeconds,
-          },
-        });
-      }
+      const notificationId = await scheduleLocalNotification(
+        link,
+        delaySeconds,
+        Platform.OS === "web"
+          ? (message, url) => {
+              if (confirm(message)) {
+                Linking.openURL(url).catch((err) =>
+                  console.error("Failed to open URL:", err),
+                );
+              }
+            }
+          : undefined,
+      );
 
       // 5. Update state and AsyncStorage
       const updatedReminders = reminders.filter((r) => r.linkId !== link._id);
@@ -932,50 +865,11 @@ export default function Index() {
     }
   };
 
-  const onChangeDate = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (event.type === "dismissed") {
-      return;
-    }
-    if (selectedDate) {
-      const newDate = new Date(customReminderDate);
-      newDate.setFullYear(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-      );
-      setCustomReminderDate(newDate);
-
-      // Auto-open time picker on Native for a seamless wizard flow
-      if (Platform.OS !== "web") {
-        setTimeout(() => {
-          setShowTimePicker(true);
-        }, 300);
-      }
-    }
-  };
-
-  const onChangeTime = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (event.type === "dismissed") {
-      return;
-    }
-    if (selectedTime) {
-      const newDate = new Date(customReminderDate);
-      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
-      setCustomReminderDate(newDate);
-    }
-  };
-
   const handleCancelReminder = async (linkId: string) => {
     try {
       const existing = reminders.find((r) => r.linkId === linkId);
       if (existing) {
-        if (Platform.OS !== "web") {
-          await Notifications.cancelScheduledNotificationAsync(
-            existing.notificationId,
-          );
-        }
+        await cancelLocalNotification(existing.notificationId);
 
         const updated = reminders.filter((r) => r.linkId !== linkId);
         setReminders(updated);
@@ -1002,43 +896,17 @@ export default function Index() {
         "smartNotificationId",
       );
       if (smartNotificationId) {
-        if (Platform.OS !== "web") {
-          await Notifications.cancelScheduledNotificationAsync(
-            smartNotificationId,
-          );
-        }
+        await cancelLocalNotification(smartNotificationId);
         await AsyncStorage.removeItem("smartNotificationId");
       }
 
       if (enabled) {
-        let notificationId = "";
-        if (Platform.OS === "web") {
-          notificationId = `web-smart-${Date.now()}`;
-          Alert.alert(
-            "Akıllı Hatırlatıcı Aktif 🔔",
-            "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
-          );
-        } else {
-          notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "Haftalık Akıllı Hatırlatıcı 🔔",
-              body: "Pazartesi günü kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek ister misin?",
-              data: { url: Config.API_URL + "/bio" },
-            },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-              seconds: 7 * 24 * 60 * 60,
-              repeats: true,
-            },
-          });
-        }
+        const notificationId = await scheduleSmartWeeklyNotification();
         await AsyncStorage.setItem("smartNotificationId", notificationId);
-        if (Platform.OS !== "web") {
-          Alert.alert(
-            "Akıllı Hatırlatıcı Aktif 🔔",
-            "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
-          );
-        }
+        Alert.alert(
+          "Akıllı Hatırlatıcı Aktif 🔔",
+          "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
+        );
       } else {
         Alert.alert(
           "Devre Dışı Bırakıldı 🔕",
@@ -1612,715 +1480,72 @@ export default function Index() {
           </Dialog.Actions>
         </Dialog>
 
-        {/* Create/Edit Folder Form Dialog */}
-        <Dialog
+        {/* Folder Add/Edit Form Dialog */}
+        <FolderFormDialog
           visible={folderFormVisible}
           onDismiss={() => setFolderFormVisible(false)}
-        >
-          <Dialog.Title>
-            {editingFolder ? "Klasörü Düzenle" : "Yeni Klasör Oluştur"}
-          </Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Klasör Adı"
-              value={folderName}
-              onChangeText={setFolderName}
-              mode="outlined"
-              style={{ marginBottom: 16 }}
-            />
-
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-            >
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text variant="labelMedium" style={{ fontWeight: "bold" }}>
-                  Herkese Açık
-                </Text>
-                <Text variant="bodySmall" style={{ color: "#666" }}>
-                  Bio sayfasında klasör içeriğini gösterir
-                </Text>
-              </View>
-              <Switch
-                value={folderIsPublic}
-                onValueChange={setFolderIsPublic}
-                color={folderColor}
-              />
-            </View>
-
-            <Text
-              variant="labelLarge"
-              style={{ marginBottom: 8, fontWeight: "bold" }}
-            >
-              Renk Seçin
-            </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                marginBottom: 16,
-                justifyContent: "space-between",
-              }}
-            >
-              {FOLDER_COLORS.map((c) => (
-                <View
-                  key={c}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: c,
-                    margin: 4,
-                    borderWidth: folderColor === c ? 3 : 0,
-                    borderColor: "#333",
-                  }}
-                  onTouchEnd={() => setFolderColor(c)}
-                />
-              ))}
-            </View>
-
-            <Text
-              variant="labelLarge"
-              style={{ marginBottom: 8, fontWeight: "bold" }}
-            >
-              İkon Seçin
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 8 }}
-            >
-              {FOLDER_ICONS.map((i) => (
-                <IconButton
-                  key={i}
-                  icon={i}
-                  size={24}
-                  selected={folderIcon === i}
-                  onPress={() => setFolderIcon(i)}
-                  iconColor={folderIcon === i ? "white" : "#666"}
-                  style={{
-                    backgroundColor: folderIcon === i ? folderColor : "#f0f0f0",
-                    marginRight: 8,
-                  }}
-                />
-              ))}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setFolderFormVisible(false)}>İptal</Button>
-            <Button mode="contained" onPress={handleCreateOrUpdateFolder}>
-              Kaydet
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+          editingFolder={editingFolder}
+          folderName={folderName}
+          setFolderName={setFolderName}
+          folderColor={folderColor}
+          setFolderColor={setFolderColor}
+          folderIcon={folderIcon}
+          setFolderIcon={setFolderIcon}
+          folderIsPublic={folderIsPublic}
+          setFolderIsPublic={setFolderIsPublic}
+          onSave={handleCreateOrUpdateFolder}
+        />
 
         {/* Bio Page Settings Dialog */}
-        <Dialog
+        <BioSettingsDialog
           visible={bioSettingsVisible}
           onDismiss={() => setBioSettingsVisible(false)}
-        >
-          <Dialog.Title>Bio Sayfası Ayarları</Dialog.Title>
-          <Dialog.Content>
-            <ScrollView style={{ maxHeight: 350 }}>
-              <TextInput
-                label="Ad Soyad"
-                value={profileName}
-                onChangeText={setProfileName}
-                mode="outlined"
-                style={{ marginBottom: 12 }}
-              />
-
-              <TextInput
-                label="Kısa Açıklama (Bio)"
-                value={profileBio}
-                onChangeText={setProfileBio}
-                mode="outlined"
-                multiline
-                numberOfLines={3}
-                style={{ marginBottom: 12 }}
-              />
-
-              <TextInput
-                label="Profil Fotoğrafı URL (Avatar)"
-                value={profileAvatarUrl}
-                onChangeText={setProfileAvatarUrl}
-                mode="outlined"
-                autoCapitalize="none"
-                keyboardType="url"
-                style={{ marginBottom: 16 }}
-              />
-
-              <Text
-                variant="labelLarge"
-                style={{ marginBottom: 8, fontWeight: "bold" }}
-              >
-                Görsel Tema
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  marginBottom: 8,
-                  gap: 8,
-                }}
-              >
-                {[
-                  {
-                    id: "purple-dark",
-                    name: "Mor Karanlık",
-                    bg: "#1f1c2c",
-                    text: "#fff",
-                  },
-                  {
-                    id: "sunset",
-                    name: "Günbatımı",
-                    bg: "#ff5e62",
-                    text: "#fff",
-                  },
-                  {
-                    id: "nordic-light",
-                    name: "Kuzey Işığı",
-                    bg: "#eef2f3",
-                    text: "#2c3e50",
-                  },
-                  {
-                    id: "glassmorphic",
-                    name: "Buzlu Cam",
-                    bg: "#1a1a2e",
-                    text: "#fff",
-                  },
-                ].map((t) => (
-                  <Chip
-                    key={t.id}
-                    selected={profileTheme === t.id}
-                    onPress={() => setProfileTheme(t.id)}
-                    style={{
-                      backgroundColor: profileTheme === t.id ? t.bg : "#f0f0f0",
-                      borderColor:
-                        profileTheme === t.id ? theme.colors.primary : "#ccc",
-                      borderWidth: profileTheme === t.id ? 2 : 0,
-                      marginRight: 4,
-                      marginBottom: 8,
-                    }}
-                    textStyle={{
-                      color: profileTheme === t.id ? t.text : "#333",
-                      fontWeight: profileTheme === t.id ? "bold" : "normal",
-                    }}
-                  >
-                    {t.name}
-                  </Chip>
-                ))}
-              </View>
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => setBioSettingsVisible(false)}
-              disabled={savingProfile}
-            >
-              İptal
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSaveProfile}
-              loading={savingProfile}
-              disabled={savingProfile}
-            >
-              Kaydet
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+          profileName={profileName}
+          setProfileName={setProfileName}
+          profileBio={profileBio}
+          setProfileBio={setProfileBio}
+          profileAvatarUrl={profileAvatarUrl}
+          setProfileAvatarUrl={setProfileAvatarUrl}
+          profileTheme={profileTheme}
+          setProfileTheme={setProfileTheme}
+          savingProfile={savingProfile}
+          onSave={handleSaveProfile}
+          theme={theme}
+        />
 
         {/* Folder Collaboration Settings Dialog */}
-        <Dialog
+        <CollaborationDialog
           visible={collaborationModalVisible}
           onDismiss={() => setCollaborationModalVisible(false)}
-        >
-          <Dialog.Title>👥 Ortak Çalışma Ayarları</Dialog.Title>
-          <Dialog.Content>
-            {currentFolder && (
-              <ScrollView style={{ maxHeight: 350 }}>
-                <Text
-                  variant="labelMedium"
-                  style={{ fontWeight: "bold", marginBottom: 8, color: "#333" }}
-                >
-                  Klasör: {currentFolder.name}
-                </Text>
-
-                {/* Active Members List */}
-                <Text
-                  variant="labelSmall"
-                  style={{ fontWeight: "bold", color: "#666", marginBottom: 6 }}
-                >
-                  Aktif Üyeler:
-                </Text>
-
-                {/* Owner */}
-                <View style={styles.collabMemberRow}>
-                  <IconButton
-                    icon="crown"
-                    iconColor="#fbc02d"
-                    size={20}
-                    style={{ margin: 0 }}
-                  />
-                  <Text
-                    variant="bodyMedium"
-                    style={{ flex: 1, fontWeight: "bold" }}
-                  >
-                    @{currentFolder.owner?.username || "Bilinmiyor"} (Klasör
-                    Sahibi)
-                  </Text>
-                </View>
-
-                {/* Collaborators */}
-                {currentFolder.collaborators &&
-                currentFolder.collaborators.length === 0 ? (
-                  <Text style={styles.emptyCollabText}>
-                    Henüz bir ortak eklenmemiş.
-                  </Text>
-                ) : (
-                  currentFolder.collaborators &&
-                  currentFolder.collaborators.map((col: any) => {
-                    const isCurrentUserOwner =
-                      currentFolder.owner?._id === currentUser?.id;
-
-                    return (
-                      <View key={col._id} style={styles.collabMemberRow}>
-                        <IconButton
-                          icon="account"
-                          iconColor="#666"
-                          size={20}
-                          style={{ margin: 0 }}
-                        />
-                        <Text variant="bodyMedium" style={{ flex: 1 }}>
-                          @{col.username}
-                        </Text>
-                        {isCurrentUserOwner && (
-                          <IconButton
-                            icon="account-remove"
-                            iconColor="#d32f2f"
-                            size={20}
-                            style={{ margin: 0 }}
-                            onPress={() => handleRemoveCollaborator(col._id)}
-                          />
-                        )}
-                      </View>
-                    );
-                  })
-                )}
-
-                {/* Section to invite collaborators (Owner Only) */}
-                {currentFolder.owner?._id === currentUser?.id ? (
-                  <View
-                    style={{
-                      marginTop: 16,
-                      borderTopWidth: 0.5,
-                      borderTopColor: "#eee",
-                      paddingTop: 16,
-                    }}
-                  >
-                    <Text
-                      variant="labelSmall"
-                      style={{
-                        fontWeight: "bold",
-                        color: "#666",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Yeni Ortak Davet Et:
-                    </Text>
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      <TextInput
-                        label="Kullanıcı Adı veya E-Posta"
-                        value={inviteUsernameOrEmail}
-                        onChangeText={setInviteUsernameOrEmail}
-                        mode="outlined"
-                        autoCapitalize="none"
-                        dense
-                        style={{ flex: 1, height: 42, backgroundColor: "#fff" }}
-                      />
-                      <Button
-                        mode="contained"
-                        onPress={handleAddCollaborator}
-                        loading={inviting}
-                        disabled={inviting}
-                        style={{
-                          marginLeft: 8,
-                          height: 42,
-                          justifyContent: "center",
-                        }}
-                      >
-                        Ekle
-                      </Button>
-                    </View>
-                  </View>
-                ) : (
-                  // Section to leave folder (Collaborators Only)
-                  <Button
-                    mode="contained"
-                    icon="logout"
-                    buttonColor="#d32f2f"
-                    onPress={handleLeaveFolder}
-                    style={{ marginTop: 24 }}
-                  >
-                    Bu Klasörden Ayrıl
-                  </Button>
-                )}
-              </ScrollView>
-            )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setCollaborationModalVisible(false)}>
-              Done
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+          currentFolder={currentFolder}
+          currentUser={currentUser}
+          inviteUsernameOrEmail={inviteUsernameOrEmail}
+          setInviteUsernameOrEmail={setInviteUsernameOrEmail}
+          inviting={inviting}
+          onAddCollaborator={handleAddCollaborator}
+          onRemoveCollaborator={handleRemoveCollaborator}
+          onLeaveFolder={handleLeaveFolder}
+        />
 
         {/* "Daha Sonra Oku" Hatırlatıcı Ayarları Dialog */}
-        <Dialog
+        <ReminderDialog
           visible={reminderDialogVisible}
           onDismiss={() => setReminderDialogVisible(false)}
-          style={{ borderRadius: 20, backgroundColor: "#ffffff" }}
-        >
-          <Dialog.Title
-            style={{
-              textAlign: "center",
-              fontWeight: "bold",
-              color: "#1a1a2e",
-            }}
-          >
-            🔔 Hatırlatıcı Ayarla
-          </Dialog.Title>
-          <Dialog.Content>
-            {selectedReminderLink && (
-              <ScrollView
-                style={{ maxHeight: 380 }}
-                showsVerticalScrollIndicator={false}
-              >
-                <Text
-                  variant="titleSmall"
-                  style={{
-                    fontWeight: "bold",
-                    marginBottom: 4,
-                    color: "#1a1a2e",
-                  }}
-                >
-                  Seçilen Bağlantı:
-                </Text>
-                <Text
-                  variant="bodyMedium"
-                  style={{ color: "#666", marginBottom: 16, lineHeight: 20 }}
-                  numberOfLines={2}
-                >
-                  {selectedReminderLink.title || selectedReminderLink.url}
-                </Text>
-
-                <Text
-                  variant="labelLarge"
-                  style={{
-                    fontWeight: "bold",
-                    marginBottom: 8,
-                    color: "#1a1a2e",
-                  }}
-                >
-                  📅 Tarih & Saat Seç:
-                </Text>
-
-                {Platform.OS === "web" ? (
-                  <View style={{ marginBottom: 16 }}>
-                    <input
-                      type="datetime-local"
-                      value={webCustomDateTime}
-                      onChange={(e) => setWebCustomDateTime(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 14px",
-                        fontSize: "15px",
-                        borderRadius: "12px",
-                        border: "1.5px solid #6200ee",
-                        backgroundColor: "#ffffff",
-                        color: "#1a1a2e",
-                        fontFamily: "sans-serif",
-                        outline: "none",
-                        marginBottom: "12px",
-                        boxSizing: "border-box",
-                      }}
-                      min={new Date().toISOString().slice(0, 16)}
-                    />
-                    <Button
-                      mode="contained"
-                      icon="bell-plus"
-                      disabled={!webCustomDateTime}
-                      onPress={() => {
-                        if (webCustomDateTime) {
-                          const chosenDate = new Date(webCustomDateTime);
-                          handleScheduleReminder(
-                            selectedReminderLink,
-                            "custom",
-                            chosenDate,
-                          );
-                        }
-                      }}
-                      style={styles.customReminderButton}
-                      buttonColor="#6200ee"
-                    >
-                      Hatırlatıcıyı Kur
-                    </Button>
-                  </View>
-                ) : (
-                  <View style={{ marginBottom: 16 }}>
-                    {Platform.OS === "ios" ? (
-                      <View
-                        style={{
-                          marginBottom: 12,
-                          backgroundColor: "#f5f3ff",
-                          borderRadius: 14,
-                          paddingHorizontal: 12,
-                          paddingVertical: 10,
-                        }}
-                      >
-                        <Text
-                          variant="labelSmall"
-                          style={{
-                            color: "#6200ee",
-                            fontWeight: "bold",
-                            marginBottom: 8,
-                          }}
-                        >
-                          Tarih & Saat Seçin:
-                        </Text>
-                        <View style={{ alignItems: "center", width: "100%" }}>
-                          <DateTimePicker
-                            value={customReminderDate}
-                            mode="datetime"
-                            display="compact"
-                            themeVariant="light"
-                            onChange={(event, date) => {
-                              if (date) setCustomReminderDate(date);
-                            }}
-                            minimumDate={new Date()}
-                          />
-                        </View>
-                      </View>
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={styles.dateTimePickerCard}
-                          onPress={() => setShowDatePicker(true)}
-                          activeOpacity={0.8}
-                        >
-                          <IconButton
-                            icon="calendar-clock"
-                            iconColor="#6200ee"
-                            size={26}
-                            style={{ margin: 0 }}
-                          />
-                          <View style={{ flex: 1, marginLeft: 4 }}>
-                            <Text
-                              variant="labelSmall"
-                              style={{ color: "#666", fontWeight: "bold" }}
-                            >
-                              Kurulacak Zaman:
-                            </Text>
-                            <Text
-                              variant="titleMedium"
-                              style={{ fontWeight: "bold", color: "#1a1a2e" }}
-                            >
-                              {customReminderDate.toLocaleDateString("tr-TR")} -{" "}
-                              {customReminderDate.toLocaleTimeString("tr-TR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </Text>
-                          </View>
-                          <IconButton
-                            icon="chevron-right"
-                            iconColor="#666"
-                            size={20}
-                            style={{ margin: 0 }}
-                          />
-                        </TouchableOpacity>
-
-                        {showDatePicker && (
-                          <DateTimePicker
-                            value={customReminderDate}
-                            mode="date"
-                            display="default"
-                            onChange={onChangeDate}
-                            minimumDate={new Date()}
-                          />
-                        )}
-                        {showTimePicker && (
-                          <DateTimePicker
-                            value={customReminderDate}
-                            mode="time"
-                            display="default"
-                            onChange={onChangeTime}
-                          />
-                        )}
-                      </>
-                    )}
-
-                    <Button
-                      mode="contained"
-                      icon="bell-plus"
-                      onPress={() =>
-                        handleScheduleReminder(
-                          selectedReminderLink,
-                          "custom",
-                          customReminderDate,
-                        )
-                      }
-                      style={styles.customReminderButton}
-                      buttonColor="#6200ee"
-                    >
-                      Hatırlatıcıyı Kur
-                    </Button>
-                  </View>
-                )}
-
-                <Text
-                  variant="labelLarge"
-                  style={{
-                    fontWeight: "bold",
-                    marginTop: 8,
-                    marginBottom: 8,
-                    color: "#1a1a2e",
-                  }}
-                >
-                  ⚡ Veya Hızlı Seçenekler:
-                </Text>
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{
-                    gap: 8,
-                    paddingVertical: 4,
-                    marginBottom: 16,
-                  }}
-                >
-                  <Chip
-                    icon="clock-outline"
-                    onPress={() =>
-                      handleScheduleReminder(selectedReminderLink, "1hour")
-                    }
-                    style={{ backgroundColor: "#f0f0f5" }}
-                  >
-                    1 Saat
-                  </Chip>
-                  <Chip
-                    icon="weather-night"
-                    onPress={() =>
-                      handleScheduleReminder(selectedReminderLink, "evening")
-                    }
-                    style={{ backgroundColor: "#f0f0f5" }}
-                  >
-                    Akşam (20:00)
-                  </Chip>
-                  <Chip
-                    icon="weather-sunset-up"
-                    onPress={() =>
-                      handleScheduleReminder(selectedReminderLink, "tomorrow")
-                    }
-                    style={{ backgroundColor: "#f0f0f5" }}
-                  >
-                    Yarın (09:00)
-                  </Chip>
-                  <Chip
-                    icon="calendar-week"
-                    onPress={() =>
-                      handleScheduleReminder(selectedReminderLink, "nextweek")
-                    }
-                    style={{ backgroundColor: "#f0f0f5" }}
-                  >
-                    Haftaya
-                  </Chip>
-                  <Chip
-                    icon="timer-sand"
-                    onPress={() =>
-                      handleScheduleReminder(selectedReminderLink, "instant")
-                    }
-                    style={{
-                      backgroundColor: "#fff9db",
-                      borderColor: "#ffe066",
-                      borderWidth: 1,
-                    }}
-                    textStyle={{ color: "#856404", fontWeight: "bold" }}
-                  >
-                    Test (10s)
-                  </Chip>
-                </ScrollView>
-
-                {/* Cancel existing reminder if scheduled */}
-                {reminders.some(
-                  (r) => r.linkId === selectedReminderLink._id,
-                ) && (
-                  <Button
-                    mode="contained"
-                    buttonColor="#d32f2f"
-                    icon="bell-off"
-                    onPress={() =>
-                      handleCancelReminder(selectedReminderLink._id)
-                    }
-                    style={{ marginBottom: 16, borderRadius: 12 }}
-                  >
-                    Mevcut Hatırlatıcıyı İptal Et
-                  </Button>
-                )}
-
-                <View
-                  style={{
-                    borderTopWidth: 0.5,
-                    borderTopColor: "#eee",
-                    paddingTop: 16,
-                    marginTop: 8,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text
-                        variant="labelLarge"
-                        style={{ fontWeight: "bold", color: "#1a1a2e" }}
-                      >
-                        Haftalık Akıllı Hatırlatıcı
-                      </Text>
-                      <Text variant="bodySmall" style={{ color: "#666" }}>
-                        Pazartesi günleri kaydettiğin bağlantıları incelemek ve
-                        okuma listeni düzenlemek için hatırlatıcı gönderir.
-                      </Text>
-                    </View>
-                    <Switch
-                      value={smartRemindersEnabled}
-                      onValueChange={handleToggleSmartReminders}
-                      color="#6200ee"
-                    />
-                  </View>
-                </View>
-              </ScrollView>
-            )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              onPress={() => setReminderDialogVisible(false)}
-              textColor="#666"
-            >
-              Vazgeç
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+          selectedReminderLink={selectedReminderLink}
+          customReminderDate={customReminderDate}
+          setCustomReminderDate={setCustomReminderDate}
+          showDatePicker={showDatePicker}
+          setShowDatePicker={setShowDatePicker}
+          showTimePicker={showTimePicker}
+          setShowTimePicker={setShowTimePicker}
+          webCustomDateTime={webCustomDateTime}
+          setWebCustomDateTime={setWebCustomDateTime}
+          reminders={reminders}
+          smartRemindersEnabled={smartRemindersEnabled}
+          onScheduleReminder={handleScheduleReminder}
+          onCancelReminder={handleCancelReminder}
+          onToggleSmartReminders={handleToggleSmartReminders}
+        />
       </Portal>
 
       {loading && links.length === 0 ? (
@@ -2369,111 +1594,17 @@ export default function Index() {
       <FAB icon="plus" style={styles.fab} onPress={() => router.push("/add")} />
 
       {/* Clipboard Prompt UI */}
-      {showClipboardPrompt && clipboardUrl && (
-        <View style={styles.clipboardCardContainer}>
-          <View style={styles.clipboardCard}>
-            <View style={styles.clipboardHeader}>
-              <IconButton
-                icon="content-copy"
-                size={24}
-                iconColor={theme.colors.primary}
-                style={{ margin: 0 }}
-              />
-              <Text variant="titleMedium" style={styles.clipboardTitle}>
-                Panoda Link Algılandı
-              </Text>
-            </View>
-            <Text
-              variant="bodyMedium"
-              numberOfLines={1}
-              style={styles.clipboardUrlText}
-            >
-              {clipboardUrl}
-            </Text>
-
-            {folders.length > 0 && (
-              <View style={{ marginBottom: 12 }}>
-                <Text
-                  variant="labelSmall"
-                  style={{ marginBottom: 6, fontWeight: "bold", color: "#666" }}
-                >
-                  Klasör Seçin (İsteğe Bağlı):
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <Chip
-                    selected={clipboardFolderId === null}
-                    onPress={() => setClipboardFolderId(null)}
-                    style={{
-                      marginRight: 6,
-                      height: 32,
-                      backgroundColor:
-                        clipboardFolderId === null
-                          ? theme.colors.primaryContainer
-                          : "#f5f5f5",
-                    }}
-                    textStyle={{
-                      fontSize: 11,
-                      color:
-                        clipboardFolderId === null
-                          ? theme.colors.onPrimaryContainer
-                          : "#666",
-                    }}
-                    showSelectedOverlay
-                    compact
-                  >
-                    Yok
-                  </Chip>
-                  {folders.map((f) => (
-                    <Chip
-                      key={f._id}
-                      selected={clipboardFolderId === f._id}
-                      onPress={() => setClipboardFolderId(f._id)}
-                      style={{
-                        marginRight: 6,
-                        height: 32,
-                        backgroundColor:
-                          clipboardFolderId === f._id ? f.color : "#f5f5f5",
-                        borderColor: f.color,
-                        borderWidth: clipboardFolderId === f._id ? 0 : 1,
-                      }}
-                      textStyle={{
-                        color: clipboardFolderId === f._id ? "#fff" : "#333",
-                        fontWeight:
-                          clipboardFolderId === f._id ? "bold" : "normal",
-                        fontSize: 11,
-                      }}
-                      showSelectedOverlay
-                      compact
-                      icon={f.icon || "folder"}
-                    >
-                      {f.name}
-                    </Chip>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            <View style={styles.clipboardActions}>
-              <Button
-                mode="text"
-                onPress={handleDismissClipboard}
-                disabled={savingClipboard}
-              >
-                İptal
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleSaveClipboard}
-                loading={savingClipboard}
-                disabled={savingClipboard}
-                style={{ marginLeft: 8 }}
-              >
-                Kaydet
-              </Button>
-            </View>
-          </View>
-        </View>
-      )}
+      <ClipboardPrompt
+        visible={showClipboardPrompt}
+        clipboardUrl={clipboardUrl}
+        clipboardFolderId={clipboardFolderId}
+        setClipboardFolderId={setClipboardFolderId}
+        folders={folders}
+        savingClipboard={savingClipboard}
+        onSave={handleSaveClipboard}
+        onDismiss={handleDismissClipboard}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -2500,42 +1631,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 10,
-  },
-  clipboardCardContainer: {
-    position: "absolute",
-    bottom: 90,
-    left: 16,
-    right: 16,
-    alignItems: "center",
-    zIndex: 100,
-  },
-  clipboardCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  clipboardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  clipboardTitle: {
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  clipboardUrlText: {
-    color: "#666",
-    marginBottom: 16,
-  },
-  clipboardActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
   },
   collaborationBanner: {
     flexDirection: "row",
@@ -2566,35 +1661,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 10,
     fontWeight: "bold",
-  },
-  collabMemberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#eee",
-  },
-  emptyCollabText: {
-    textAlign: "center",
-    marginVertical: 12,
-    color: "#666",
-    fontStyle: "italic",
-  },
-  dateTimePickerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f3ff",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1.5,
-    borderColor: "#e0d9ff",
-    marginBottom: 12,
-  },
-  customReminderButton: {
-    borderRadius: 12,
-    paddingVertical: 4,
-    marginBottom: 16,
   },
   connectionErrorBanner: {
     flexDirection: "row",
