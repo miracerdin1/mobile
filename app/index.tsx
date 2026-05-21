@@ -769,15 +769,28 @@ export default function Index() {
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
+    if (event.type === "dismissed") {
+      return;
+    }
     if (selectedDate) {
       const newDate = new Date(customReminderDate);
       newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setCustomReminderDate(newDate);
+      
+      // Auto-open time picker on Native for a seamless wizard flow
+      if (Platform.OS !== "web") {
+        setTimeout(() => {
+          setShowTimePicker(true);
+        }, 300);
+      }
     }
   };
 
   const onChangeTime = (event: any, selectedTime?: Date) => {
     setShowTimePicker(false);
+    if (event.type === "dismissed") {
+      return;
+    }
     if (selectedTime) {
       const newDate = new Date(customReminderDate);
       newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
@@ -1527,87 +1540,35 @@ export default function Index() {
         <Dialog
           visible={reminderDialogVisible}
           onDismiss={() => setReminderDialogVisible(false)}
+          style={{ borderRadius: 20, backgroundColor: "#ffffff" }}
         >
-          <Dialog.Title>🔔 Hatırlatıcı Ayarla</Dialog.Title>
+          <Dialog.Title style={{ textAlign: "center", fontWeight: "bold", color: "#1a1a2e" }}>
+            🔔 Hatırlatıcı Ayarla
+          </Dialog.Title>
           <Dialog.Content>
             {selectedReminderLink && (
-              <ScrollView style={{ maxHeight: 350 }}>
-                <Text variant="titleSmall" style={{ fontWeight: "bold", marginBottom: 4, color: "#333" }}>
+              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                <Text variant="titleSmall" style={{ fontWeight: "bold", marginBottom: 4, color: "#1a1a2e" }}>
                   Seçilen Bağlantı:
                 </Text>
-                <Text variant="bodyMedium" style={{ color: "#666", marginBottom: 16 }} numberOfLines={2}>
+                <Text variant="bodyMedium" style={{ color: "#666", marginBottom: 16, lineHeight: 20 }} numberOfLines={2}>
                   {selectedReminderLink.title || selectedReminderLink.url}
                 </Text>
 
-                <Text variant="labelLarge" style={{ fontWeight: "bold", marginBottom: 10, color: "#333" }}>
-                  Hızlı Hatırlatma Zamanı Seçin:
+                <Text variant="labelLarge" style={{ fontWeight: "bold", marginBottom: 8, color: "#1a1a2e" }}>
+                  📅 Tarih & Saat Seç:
                 </Text>
-                
-                <View style={{ gap: 8, marginBottom: 16 }}>
-                  <Button
-                    mode="outlined"
-                    icon="clock-outline"
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "1hour")}
-                    style={{ justifyContent: "flex-start" }}
-                    contentStyle={{ justifyContent: "flex-start" }}
-                  >
-                    1 Saat Sonra
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    icon="weather-night"
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "evening")}
-                    style={{ justifyContent: "flex-start" }}
-                    contentStyle={{ justifyContent: "flex-start" }}
-                  >
-                    Bu Akşam (20:00)
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    icon="weather-sunset-up"
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "tomorrow")}
-                    style={{ justifyContent: "flex-start" }}
-                    contentStyle={{ justifyContent: "flex-start" }}
-                  >
-                    Yarın Sabah (09:00)
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    icon="calendar-week"
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "nextweek")}
-                    style={{ justifyContent: "flex-start" }}
-                    contentStyle={{ justifyContent: "flex-start" }}
-                  >
-                    Gelecek Hafta (Pazartesi 09:00)
-                  </Button>
-                  
-                  {/* Test Button for instant testing */}
-                  <Button
-                    mode="contained"
-                    buttonColor="#ffb300"
-                    textColor="#fff"
-                    icon="timer-sand"
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "instant")}
-                    style={{ justifyContent: "flex-start", marginTop: 4 }}
-                    contentStyle={{ justifyContent: "flex-start" }}
-                  >
-                    10 Saniye Sonra (Hızlı Test ⏱️)
-                  </Button>
-                </View>
 
-                <Text variant="labelLarge" style={{ fontWeight: "bold", marginTop: 8, marginBottom: 8, color: "#333" }}>
-                  📅 Veya Özel Tarih & Saat Seç:
-                </Text>
-                
                 {Platform.OS === "web" ? (
                   <View style={{ marginBottom: 16 }}>
                     <TextInput
-                      label="Hatırlatma Tarihi ve Saati"
+                      label="Tarih ve Saat Seçin"
                       mode="outlined"
                       value={webCustomDateTime}
                       onChangeText={setWebCustomDateTime}
-                      right={<TextInput.Icon icon="calendar-clock" />}
-                      style={{ marginBottom: 8, backgroundColor: "white" }}
+                      activeOutlineColor="#6200ee"
+                      right={<TextInput.Icon icon="calendar-clock" color="#6200ee" />}
+                      style={{ marginBottom: 10, backgroundColor: "white" }}
                       {...({ type: "datetime-local" } as any)}
                     />
                     <Button
@@ -1620,41 +1581,87 @@ export default function Index() {
                           handleScheduleReminder(selectedReminderLink, "custom", chosenDate);
                         }
                       }}
-                      style={{ marginTop: 4 }}
+                      style={styles.customReminderButton}
+                      buttonColor="#6200ee"
                     >
-                      Özel Hatırlatıcıyı Kur
+                      Hatırlatıcıyı Kur
                     </Button>
                   </View>
                 ) : (
                   <View style={{ marginBottom: 16 }}>
-                    <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
-                      <Button
-                        mode="outlined"
-                        icon="calendar"
-                        style={{ flex: 1 }}
-                        onPress={() => setShowDatePicker(true)}
-                      >
-                        {customReminderDate.toLocaleDateString("tr-TR")}
-                      </Button>
-                      <Button
-                        mode="outlined"
-                        icon="clock"
-                        style={{ flex: 1 }}
-                        onPress={() => setShowTimePicker(true)}
-                      >
-                        {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
-                      </Button>
-                    </View>
+                    <TouchableOpacity 
+                      style={styles.dateTimePickerCard} 
+                      onPress={() => setShowDatePicker(true)}
+                      activeOpacity={0.8}
+                    >
+                      <IconButton icon="calendar-clock" iconColor="#6200ee" size={26} style={{ margin: 0 }} />
+                      <View style={{ flex: 1, marginLeft: 4 }}>
+                        <Text variant="labelSmall" style={{ color: "#666", fontWeight: "bold" }}>Kurulacak Zaman:</Text>
+                        <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
+                          {customReminderDate.toLocaleDateString("tr-TR")} - {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                      <IconButton icon="chevron-right" iconColor="#666" size={20} style={{ margin: 0 }} />
+                    </TouchableOpacity>
+
                     <Button
                       mode="contained"
                       icon="bell-plus"
                       onPress={() => handleScheduleReminder(selectedReminderLink, "custom", customReminderDate)}
-                      style={{ marginTop: 4 }}
+                      style={styles.customReminderButton}
+                      buttonColor="#6200ee"
                     >
-                      Özel Hatırlatıcıyı Kur
+                      Hatırlatıcıyı Kur
                     </Button>
                   </View>
                 )}
+
+                <Text variant="labelLarge" style={{ fontWeight: "bold", marginTop: 8, marginBottom: 8, color: "#1a1a2e" }}>
+                  ⚡ Veya Hızlı Seçenekler:
+                </Text>
+                
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  contentContainerStyle={{ gap: 8, paddingVertical: 4, marginBottom: 16 }}
+                >
+                  <Chip 
+                    icon="clock-outline" 
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "1hour")}
+                    style={{ backgroundColor: "#f0f0f5" }}
+                  >
+                    1 Saat
+                  </Chip>
+                  <Chip 
+                    icon="weather-night" 
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "evening")}
+                    style={{ backgroundColor: "#f0f0f5" }}
+                  >
+                    Akşam (20:00)
+                  </Chip>
+                  <Chip 
+                    icon="weather-sunset-up" 
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "tomorrow")}
+                    style={{ backgroundColor: "#f0f0f5" }}
+                  >
+                    Yarın (09:00)
+                  </Chip>
+                  <Chip 
+                    icon="calendar-week" 
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "nextweek")}
+                    style={{ backgroundColor: "#f0f0f5" }}
+                  >
+                    Haftaya
+                  </Chip>
+                  <Chip 
+                    icon="timer-sand" 
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "instant")}
+                    style={{ backgroundColor: "#fff9db", borderColor: "#ffe066", borderWidth: 1 }}
+                    textStyle={{ color: "#856404", fontWeight: "bold" }}
+                  >
+                    Test (10s)
+                  </Chip>
+                </ScrollView>
 
                 {/* Cancel existing reminder if scheduled */}
                 {reminders.some((r) => r.linkId === selectedReminderLink._id) && (
@@ -1663,7 +1670,7 @@ export default function Index() {
                     buttonColor="#d32f2f"
                     icon="bell-off"
                     onPress={() => handleCancelReminder(selectedReminderLink._id)}
-                    style={{ marginBottom: 20, marginTop: 8 }}
+                    style={{ marginBottom: 16, borderRadius: 12 }}
                   >
                     Mevcut Hatırlatıcıyı İptal Et
                   </Button>
@@ -1672,11 +1679,11 @@ export default function Index() {
                 <View style={{ borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 16, marginTop: 8 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text variant="labelLarge" style={{ fontWeight: "bold", color: "#333" }}>
+                      <Text variant="labelLarge" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
                         Haftalık Akıllı Hatırlatıcı
                       </Text>
                       <Text variant="bodySmall" style={{ color: "#666" }}>
-                        Her hafta saved links listenden unuttuğun linkleri hatırlatır.
+                        Pazartesi günleri kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek için hatırlatıcı gönderir.
                       </Text>
                     </View>
                     <Switch
@@ -1690,7 +1697,7 @@ export default function Index() {
             )}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setReminderDialogVisible(false)}>Vazgeç</Button>
+            <Button onPress={() => setReminderDialogVisible(false)} textColor="#666">Vazgeç</Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -1930,5 +1937,21 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     color: "#666",
     fontStyle: "italic",
+  },
+  dateTimePickerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f3ff",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: "#e0d9ff",
+    marginBottom: 12,
+  },
+  customReminderButton: {
+    borderRadius: 12,
+    paddingVertical: 4,
+    marginBottom: 16,
   },
 });
