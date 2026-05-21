@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as Clipboard from "expo-clipboard";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, useNavigation } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  Share,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -26,6 +27,7 @@ import {
   Text,
   TextInput,
   useTheme,
+  Switch,
 } from "react-native-paper";
 import LinkCard from "../components/LinkCard";
 import Config from "../constants/Config";
@@ -91,6 +93,15 @@ export default function Index() {
   const [folderName, setFolderName] = useState("");
   const [folderColor, setFolderColor] = useState("#6200ee");
   const [folderIcon, setFolderIcon] = useState("folder");
+  const [folderIsPublic, setFolderIsPublic] = useState(false);
+
+  // Profile/Bio Settings State
+  const [bioSettingsVisible, setBioSettingsVisible] = useState(false);
+  const [profileName, setProfileName] = useState("Miraç Erdin");
+  const [profileBio, setProfileBio] = useState("Kaydettiğim harika bağlantılar.");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
+  const [profileTheme, setProfileTheme] = useState("purple-dark");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const checkClipboard = async () => {
     try {
@@ -186,6 +197,77 @@ export default function Index() {
     }
   };
 
+  const fetchProfile = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/profile`);
+      if (response.data) {
+        setProfileName(response.data.name || "Miraç Erdin");
+        setProfileBio(response.data.bio || "Kaydettiğim harika bağlantılar ve koleksiyonlar.");
+        setProfileAvatarUrl(response.data.avatarUrl || "");
+        setProfileTheme(response.data.theme || "purple-dark");
+      }
+    } catch (err) {
+      console.error("Fetch profile error:", err);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim()) {
+      Alert.alert("Hata", "Profil adı boş olamaz");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await axios.post(`${Config.API_URL}/api/profile`, {
+        name: profileName.trim(),
+        bio: profileBio.trim(),
+        avatarUrl: profileAvatarUrl.trim(),
+        theme: profileTheme,
+      });
+      setBioSettingsVisible(false);
+      Alert.alert("Başarılı", "Bio sayfa ayarları güncellendi!");
+    } catch (error) {
+      Alert.alert("Hata", "Profil ayarları kaydedilemedi");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    try {
+      const shareUrl = `${Config.API_URL.replace("/api", "")}/bio`;
+      await Share.share({
+        message: `LinkFlow Bio Sayfama göz atın: ${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (error: any) {
+      Alert.alert("Hata", "Paylaşım yapılırken bir hata oluştu");
+    }
+  };
+
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: "row", marginRight: -8 }}>
+          <IconButton
+            icon="earth"
+            size={22}
+            onPress={() => setBioSettingsVisible(true)}
+            iconColor="#333"
+          />
+          <IconButton
+            icon="share-variant"
+            size={22}
+            onPress={handleShareProfile}
+            iconColor="#333"
+          />
+        </View>
+      ),
+    });
+  }, [navigation, profileName, profileBio, profileAvatarUrl, profileTheme]);
+
   const handleCreateOrUpdateFolder = async () => {
     if (!folderName.trim()) {
       Alert.alert("Hata", "Klasör adı boş olamaz");
@@ -198,6 +280,7 @@ export default function Index() {
           name: folderName,
           color: folderColor,
           icon: folderIcon,
+          isPublic: folderIsPublic,
         });
         setFolders((prev) => prev.map((f) => f._id === editingFolder._id ? response.data : f));
       } else {
@@ -205,6 +288,7 @@ export default function Index() {
           name: folderName,
           color: folderColor,
           icon: folderIcon,
+          isPublic: folderIsPublic,
         });
         setFolders((prev) => [...prev, response.data]);
       }
@@ -212,6 +296,7 @@ export default function Index() {
       setFolderName("");
       setFolderColor("#6200ee");
       setFolderIcon("folder");
+      setFolderIsPublic(false);
       setEditingFolder(null);
     } catch (error) {
       Alert.alert("Hata", "Klasör kaydedilemedi");
@@ -268,7 +353,7 @@ export default function Index() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchLinks(), fetchFolders()]);
+    await Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]);
     setRefreshing(false);
   };
 
@@ -304,7 +389,7 @@ export default function Index() {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      Promise.all([fetchLinks(), fetchFolders()]).finally(() => setLoading(false));
+      Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() => setLoading(false));
     }, [])
   );
 
@@ -404,7 +489,7 @@ export default function Index() {
                 fontWeight: selectedFolderId === folder._id ? "bold" : "normal"
               }}
               showSelectedOverlay
-              icon={folder.icon || "folder"}
+              icon={folder.isPublic ? "earth" : (folder.icon || "folder")}
             >
               {folder.name}
             </Chip>
@@ -415,6 +500,7 @@ export default function Index() {
               setFolderName("");
               setFolderColor("#6200ee");
               setFolderIcon("folder");
+              setFolderIsPublic(false);
               setFolderFormVisible(true);
             }}
             style={{ backgroundColor: "#f0f0f0" }}
@@ -503,7 +589,14 @@ export default function Index() {
                         iconColor="white"
                         style={{ backgroundColor: folder.color || "#6200ee", marginRight: 8, margin: 0 }}
                       />
-                      <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
+                      <View>
+                        <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
+                        {folder.isPublic && (
+                          <Text variant="labelSmall" style={{ color: theme.colors.primary, fontWeight: "bold" }}>
+                            🌐 Herkese Açık
+                          </Text>
+                        )}
+                      </View>
                     </View>
                     <View style={{ flexDirection: "row" }}>
                       <IconButton
@@ -514,6 +607,7 @@ export default function Index() {
                           setFolderName(folder.name);
                           setFolderColor(folder.color || "#6200ee");
                           setFolderIcon(folder.icon || "folder");
+                          setFolderIsPublic(folder.isPublic || false);
                           setFolderFormVisible(true);
                         }}
                       />
@@ -536,6 +630,7 @@ export default function Index() {
                 setFolderName("");
                 setFolderColor("#6200ee");
                 setFolderIcon("folder");
+                setFolderIsPublic(false);
                 setFolderFormVisible(true);
               }}
               style={{ marginTop: 16 }}
@@ -562,6 +657,18 @@ export default function Index() {
               mode="outlined"
               style={{ marginBottom: 16 }}
             />
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text variant="labelMedium" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
+                <Text variant="bodySmall" style={{ color: "#666" }}>Bio sayfasında klasör içeriğini gösterir</Text>
+              </View>
+              <Switch
+                value={folderIsPublic}
+                onValueChange={setFolderIsPublic}
+                color={folderColor}
+              />
+            </View>
             
             <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>Renk Seçin</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 16, justifyContent: "space-between" }}>
@@ -603,6 +710,78 @@ export default function Index() {
           <Dialog.Actions>
             <Button onPress={() => setFolderFormVisible(false)}>İptal</Button>
             <Button mode="contained" onPress={handleCreateOrUpdateFolder}>Kaydet</Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Bio Page Settings Dialog */}
+        <Dialog
+          visible={bioSettingsVisible}
+          onDismiss={() => setBioSettingsVisible(false)}
+        >
+          <Dialog.Title>Bio Sayfası Ayarları</Dialog.Title>
+          <Dialog.Content>
+            <ScrollView style={{ maxHeight: 350 }}>
+              <TextInput
+                label="Ad Soyad"
+                value={profileName}
+                onChangeText={setProfileName}
+                mode="outlined"
+                style={{ marginBottom: 12 }}
+              />
+              
+              <TextInput
+                label="Kısa Açıklama (Bio)"
+                value={profileBio}
+                onChangeText={setProfileBio}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={{ marginBottom: 12 }}
+              />
+
+              <TextInput
+                label="Profil Fotoğrafı URL (Avatar)"
+                value={profileAvatarUrl}
+                onChangeText={setProfileAvatarUrl}
+                mode="outlined"
+                autoCapitalize="none"
+                keyboardType="url"
+                style={{ marginBottom: 16 }}
+              />
+
+              <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>Görsel Tema</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8, gap: 8 }}>
+                {[
+                  { id: "purple-dark", name: "Mor Karanlık", bg: "#1f1c2c", text: "#fff" },
+                  { id: "sunset", name: "Günbatımı", bg: "#ff5e62", text: "#fff" },
+                  { id: "nordic-light", name: "Kuzey Işığı", bg: "#eef2f3", text: "#2c3e50" },
+                  { id: "glassmorphic", name: "Buzlu Cam", bg: "#1a1a2e", text: "#fff" }
+                ].map((t) => (
+                  <Chip
+                    key={t.id}
+                    selected={profileTheme === t.id}
+                    onPress={() => setProfileTheme(t.id)}
+                    style={{
+                      backgroundColor: profileTheme === t.id ? t.bg : "#f0f0f0",
+                      borderColor: profileTheme === t.id ? theme.colors.primary : "#ccc",
+                      borderWidth: profileTheme === t.id ? 2 : 0,
+                      marginRight: 4,
+                      marginBottom: 8,
+                    }}
+                    textStyle={{
+                      color: profileTheme === t.id ? t.text : "#333",
+                      fontWeight: profileTheme === t.id ? "bold" : "normal"
+                    }}
+                  >
+                    {t.name}
+                  </Chip>
+                ))}
+              </View>
+            </ScrollView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setBioSettingsVisible(false)} disabled={savingProfile}>İptal</Button>
+            <Button mode="contained" onPress={handleSaveProfile} loading={savingProfile} disabled={savingProfile}>Kaydet</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
