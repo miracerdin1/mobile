@@ -1627,20 +1627,56 @@ export default function Index() {
                   </View>
                 ) : (
                   <View style={{ marginBottom: 16 }}>
-                    <TouchableOpacity 
-                      style={styles.dateTimePickerCard} 
-                      onPress={() => setShowDatePicker(true)}
-                      activeOpacity={0.8}
-                    >
-                      <IconButton icon="calendar-clock" iconColor="#6200ee" size={26} style={{ margin: 0 }} />
-                      <View style={{ flex: 1, marginLeft: 4 }}>
-                        <Text variant="labelSmall" style={{ color: "#666", fontWeight: "bold" }}>Kurulacak Zaman:</Text>
-                        <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
-                          {customReminderDate.toLocaleDateString("tr-TR")} - {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
-                        </Text>
+                    {Platform.OS === "ios" ? (
+                      <View style={{ alignItems: "center", marginBottom: 12, backgroundColor: "#f5f3ff", borderRadius: 14, padding: 8 }}>
+                        <Text variant="labelSmall" style={{ color: "#6200ee", fontWeight: "bold", marginBottom: 6 }}>Tarih & Saat Seçin:</Text>
+                        <DateTimePicker
+                          value={customReminderDate}
+                          mode="datetime"
+                          display="inline"
+                          themeVariant="light"
+                          onChange={(event, date) => {
+                            if (date) setCustomReminderDate(date);
+                          }}
+                          minimumDate={new Date()}
+                        />
                       </View>
-                      <IconButton icon="chevron-right" iconColor="#666" size={20} style={{ margin: 0 }} />
-                    </TouchableOpacity>
+                    ) : (
+                      <>
+                        <TouchableOpacity 
+                          style={styles.dateTimePickerCard} 
+                          onPress={() => setShowDatePicker(true)}
+                          activeOpacity={0.8}
+                        >
+                          <IconButton icon="calendar-clock" iconColor="#6200ee" size={26} style={{ margin: 0 }} />
+                          <View style={{ flex: 1, marginLeft: 4 }}>
+                            <Text variant="labelSmall" style={{ color: "#666", fontWeight: "bold" }}>Kurulacak Zaman:</Text>
+                            <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
+                              {customReminderDate.toLocaleDateString("tr-TR")} - {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                            </Text>
+                          </View>
+                          <IconButton icon="chevron-right" iconColor="#666" size={20} style={{ margin: 0 }} />
+                        </TouchableOpacity>
+
+                        {showDatePicker && (
+                          <DateTimePicker
+                            value={customReminderDate}
+                            mode="date"
+                            display="default"
+                            onChange={onChangeDate}
+                            minimumDate={new Date()}
+                          />
+                        )}
+                        {showTimePicker && (
+                          <DateTimePicker
+                            value={customReminderDate}
+                            mode="time"
+                            display="default"
+                            onChange={onChangeTime}
+                          />
+                        )}
+                      </>
+                    )}
 
                     <Button
                       mode="contained"
@@ -1740,24 +1776,6 @@ export default function Index() {
         </Dialog>
 
       </Portal>
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={customReminderDate}
-          mode="date"
-          display="default"
-          onChange={onChangeDate}
-          minimumDate={new Date()}
-        />
-      )}
-      {showTimePicker && (
-        <DateTimePicker
-          value={customReminderDate}
-          mode="time"
-          display="default"
-          onChange={onChangeTime}
-        />
-      )}
 
       {loading && links.length === 0 ? (
         <View style={styles.center}>
