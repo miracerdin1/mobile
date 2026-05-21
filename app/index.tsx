@@ -560,7 +560,7 @@ export default function Index() {
     }
     navigation.setOptions({
       headerRightContainerStyle: {
-        justifyContent: "center",
+        justifyContent: "end",
         alignItems: "center",
         paddingRight: 8,
       },
@@ -574,9 +574,10 @@ export default function Index() {
             borderRadius: 20,
             borderWidth: 1,
             borderColor: "rgba(0, 0, 0, 0.08)",
-            paddingHorizontal: 4,
-            height: 36,
+            paddingHorizontal: 6,
+            height: 40,
             alignSelf: "center",
+            gap: 6,
             shadowColor: "#000",
             shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.05,
@@ -586,42 +587,42 @@ export default function Index() {
         >
           <IconButton
             icon="earth"
-            size={18}
+            size={21}
             onPress={() => setBioSettingsVisible(true)}
             iconColor="#333"
             style={{
               margin: 0,
               padding: 0,
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               justifyContent: "center",
               alignItems: "center",
             }}
           />
           <IconButton
             icon="share-variant"
-            size={18}
+            size={21}
             onPress={handleShareProfile}
             iconColor="#333"
             style={{
               margin: 0,
               padding: 0,
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               justifyContent: "center",
               alignItems: "center",
             }}
           />
           <IconButton
             icon="logout"
-            size={18}
+            size={21}
             onPress={handleLogout}
             iconColor="#d32f2f"
             style={{
               margin: 0,
               padding: 0,
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               justifyContent: "center",
               alignItems: "center",
             }}
