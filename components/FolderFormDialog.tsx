@@ -33,20 +33,7 @@ export const FOLDER_ICONS = [
   "code-tags",
 ];
 
-interface FolderFormDialogProps {
-  visible: boolean;
-  onDismiss: () => void;
-  editingFolder: any;
-  folderName: string;
-  setFolderName: (val: string) => void;
-  folderColor: string;
-  setFolderColor: (val: string) => void;
-  folderIcon: string;
-  setFolderIcon: (val: string) => void;
-  folderIsPublic: boolean;
-  setFolderIsPublic: (val: boolean) => void;
-  onSave: () => Promise<void>;
-}
+import { FolderFormDialogProps } from "../types";
 
 export default function FolderFormDialog({
   visible,

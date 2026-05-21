@@ -7,17 +7,7 @@ import {
   Button,
 } from "react-native-paper";
 
-interface ClipboardPromptProps {
-  visible: boolean;
-  clipboardUrl: string | null;
-  clipboardFolderId: string | null;
-  setClipboardFolderId: (id: string | null) => void;
-  folders: any[];
-  savingClipboard: boolean;
-  onSave: () => Promise<void>;
-  onDismiss: () => Promise<void>;
-  theme: any;
-}
+import { ClipboardPromptProps } from "../types";
 
 export default function ClipboardPrompt({
   visible,
