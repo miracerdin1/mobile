@@ -1,13 +1,14 @@
 import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import { Button, TextInput } from "react-native-paper";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Button, Chip, Text, TextInput, useTheme } from "react-native-paper";
 import Config from "../../constants/Config";
 
 export default function EditLink() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const theme = useTheme();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -15,40 +16,44 @@ export default function EditLink() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
+  // Folders State
+  const [folders, setFolders] = useState<any[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
   useEffect(() => {
     if (id) {
-      fetchLinkDetails();
+      Promise.all([fetchLinkDetails(), fetchFolders()]).finally(() => {
+        setFetching(false);
+      });
     }
   }, [id]);
 
+  const fetchFolders = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      setFolders(response.data);
+    } catch (err) {
+      console.error("Fetch folders error in EditLink:", err);
+    }
+  };
+
   const fetchLinkDetails = async () => {
     try {
-      // We can fetch the list and find the item, or implement GET /:id
-      // Since we have the list in index, passing data via params is an option,
-      // but proper way is fetching. For now, we will fetch the full list and find (lazy way)
-      // or assuming we implement GET /:id later.
-      // Actually, let's just fetch the whole list and find it for now to avoid adding another endpoint just yet.
-      // Wait, we can implement GET /:id on server easily.
-      // Let's rely on finding it in the full list for now to save a step,
-      // OR better, let's just implement GET /:id on server quickly?
-      // No, let's stick to the plan. Plan didn't explicitly say GET /:id.
-      // I will fetch all and find (not efficient but works for now).
       const response = await axios.get(`${Config.API_URL}/api/links`);
       const link = response.data.find((l: any) => l._id === id);
       if (link) {
         setTitle(link.title || "");
         setDescription(link.description || "");
         setUrl(link.url || "");
+        setSelectedFolderId(link.folderId || null);
       } else {
-        Alert.alert("Error", "Link not found");
+        Alert.alert("Hata", "Link bulunamadı");
         router.back();
       }
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to fetch link details");
+      Alert.alert("Hata", "Link detayları yüklenemedi");
       router.back();
-    } finally {
-      setFetching(false);
     }
   };
 
@@ -59,11 +64,12 @@ export default function EditLink() {
         title,
         description,
         url,
+        folderId: selectedFolderId === null ? "null" : selectedFolderId,
       });
       router.back();
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Failed to update link");
+      Alert.alert("Hata", "Link güncellenemedi");
     } finally {
       setLoading(false);
     }
@@ -84,7 +90,7 @@ export default function EditLink() {
       />
 
       <TextInput
-        label="Title"
+        label="Başlık"
         value={title}
         onChangeText={setTitle}
         mode="outlined"
@@ -92,7 +98,7 @@ export default function EditLink() {
       />
 
       <TextInput
-        label="Description"
+        label="Açıklama"
         value={description}
         onChangeText={setDescription}
         mode="outlined"
@@ -101,6 +107,43 @@ export default function EditLink() {
         style={styles.input}
       />
 
+      <Text variant="titleMedium" style={styles.sectionTitle}>Klasöre Ekle (İsteğe Bağlı)</Text>
+      <View style={styles.folderContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+          <Chip
+            selected={selectedFolderId === null}
+            onPress={() => setSelectedFolderId(null)}
+            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
+            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+            showSelectedOverlay
+            icon="folder-open"
+          >
+            Klasör Yok
+          </Chip>
+          {folders.map((f) => (
+            <Chip
+              key={f._id}
+              selected={selectedFolderId === f._id}
+              onPress={() => setSelectedFolderId(f._id)}
+              style={{
+                marginRight: 8,
+                backgroundColor: selectedFolderId === f._id ? f.color : "#f5f5f5",
+                borderColor: f.color,
+                borderWidth: selectedFolderId === f._id ? 0 : 1,
+              }}
+              textStyle={{
+                color: selectedFolderId === f._id ? "#fff" : "#333",
+                fontWeight: selectedFolderId === f._id ? "bold" : "normal"
+              }}
+              showSelectedOverlay
+              icon={f.icon || "folder"}
+            >
+              {f.name}
+            </Chip>
+          ))}
+        </ScrollView>
+      </View>
+
       <Button
         mode="contained"
         onPress={handleSave}
@@ -108,7 +151,7 @@ export default function EditLink() {
         disabled={loading}
         style={styles.button}
       >
-        Save Changes
+        Değişiklikleri Kaydet
       </Button>
 
       <Button
@@ -117,7 +160,7 @@ export default function EditLink() {
         disabled={loading}
         style={styles.button}
       >
-        Cancel
+        İptal
       </Button>
     </View>
   );
@@ -131,6 +174,16 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
+  },
+  sectionTitle: {
+    fontWeight: "bold",
+    marginTop: 8,
+    marginBottom: 8,
+    color: "#333",
+  },
+  folderContainer: {
+    marginBottom: 24,
+    height: 48,
   },
   button: {
     marginTop: 8,

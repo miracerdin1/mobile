@@ -1,15 +1,33 @@
 import axios from "axios";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import { Button, HelperText, TextInput } from "react-native-paper";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Button, Chip, HelperText, Text, TextInput, useTheme } from "react-native-paper";
 import Config from "../constants/Config";
 
 export default function AddLink() {
   const router = useRouter();
+  const theme = useTheme();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Folders State
+  const [folders, setFolders] = useState<any[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchFolders();
+  }, []);
+
+  const fetchFolders = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      setFolders(response.data);
+    } catch (err) {
+      console.error("Fetch folders error in AddLink:", err);
+    }
+  };
 
   const handleAdd = async () => {
     if (!url) {
@@ -30,14 +48,17 @@ export default function AddLink() {
 
     try {
       console.log(`Sending request to: ${Config.API_URL}/api/links`);
-      const response = await axios.post(`${Config.API_URL}/api/links`, { url });
+      const response = await axios.post(`${Config.API_URL}/api/links`, {
+        url,
+        folderId: selectedFolderId,
+      });
       console.log("Response:", response.data);
 
-      Alert.alert("Success", "Link added successfully!");
+      Alert.alert("Başarılı", "Link başarıyla eklendi!");
       router.back();
     } catch (err: any) {
       console.error("Add Link Error:", err);
-      Alert.alert("Error", `Failed to add link. ${err.message}`);
+      Alert.alert("Hata", `Link eklenemedi. ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -46,7 +67,7 @@ export default function AddLink() {
   return (
     <View style={styles.container}>
       <TextInput
-        label="URL to save"
+        label="Kaydedilecek URL"
         value={url}
         onChangeText={(text) => {
           setUrl(text);
@@ -56,10 +77,48 @@ export default function AddLink() {
         autoCapitalize="none"
         keyboardType="url"
         error={!!error}
+        style={{ marginBottom: 4 }}
       />
       <HelperText type="error" visible={!!error}>
         {error}
       </HelperText>
+
+      <Text variant="titleMedium" style={styles.sectionTitle}>Klasöre Ekle (İsteğe Bağlı)</Text>
+      <View style={styles.folderContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+          <Chip
+            selected={selectedFolderId === null}
+            onPress={() => setSelectedFolderId(null)}
+            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
+            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+            showSelectedOverlay
+            icon="folder-open"
+          >
+            Klasör Yok
+          </Chip>
+          {folders.map((f) => (
+            <Chip
+              key={f._id}
+              selected={selectedFolderId === f._id}
+              onPress={() => setSelectedFolderId(f._id)}
+              style={{
+                marginRight: 8,
+                backgroundColor: selectedFolderId === f._id ? f.color : "#f5f5f5",
+                borderColor: f.color,
+                borderWidth: selectedFolderId === f._id ? 0 : 1,
+              }}
+              textStyle={{
+                color: selectedFolderId === f._id ? "#fff" : "#333",
+                fontWeight: selectedFolderId === f._id ? "bold" : "normal"
+              }}
+              showSelectedOverlay
+              icon={f.icon || "folder"}
+            >
+              {f.name}
+            </Chip>
+          ))}
+        </ScrollView>
+      </View>
 
       <Button
         mode="contained"
@@ -68,7 +127,7 @@ export default function AddLink() {
         disabled={loading}
         style={styles.button}
       >
-        Add Link
+        Linki Kaydet
       </Button>
     </View>
   );
@@ -80,7 +139,18 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#fff",
   },
+  sectionTitle: {
+    fontWeight: "bold",
+    marginTop: 8,
+    marginBottom: 8,
+    color: "#333",
+  },
+  folderContainer: {
+    marginBottom: 24,
+    height: 48,
+  },
   button: {
     marginTop: 16,
+    paddingVertical: 4,
   },
 });
