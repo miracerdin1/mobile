@@ -157,28 +157,38 @@ export default function Index() {
   };
 
   const handleLogout = async () => {
-    Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Çıkış Yap",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await AsyncStorage.removeItem("userToken");
-            await AsyncStorage.removeItem("userData");
-            axios.defaults.headers.common["Authorization"] = "";
-            disconnectSocket();
-            setToken(null);
-            setCurrentUser(null);
-            setLinks([]);
-            setFolders([]);
-            setSelectedFolderId(null);
-          } catch (e) {
-            console.error("Logout failed:", e);
-          }
+    console.log("[Logout] handleLogout triggered");
+    const performLogout = async () => {
+      try {
+        await AsyncStorage.removeItem("userToken");
+        await AsyncStorage.removeItem("userData");
+        axios.defaults.headers.common["Authorization"] = "";
+        disconnectSocket();
+        setToken(null);
+        setCurrentUser(null);
+        setLinks([]);
+        setFolders([]);
+        setSelectedFolderId(null);
+      } catch (e) {
+        console.error("Logout failed:", e);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirm = window.confirm("Oturumu kapatmak istediğinize emin misiniz?");
+      if (confirm) {
+        await performLogout();
+      }
+    } else {
+      Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
+        { text: "İptal", style: "cancel" },
+        {
+          text: "Çıkış Yap",
+          style: "destructive",
+          onPress: performLogout,
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   // 2. WebSocket Real-time subscriptions
@@ -412,7 +422,12 @@ export default function Index() {
   };
 
   useEffect(() => {
-    if (!token || !currentUser) return;
+    if (!token || !currentUser) {
+      navigation.setOptions({
+        headerRight: () => null,
+      });
+      return;
+    }
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: "row", marginRight: -8 }}>
@@ -437,7 +452,7 @@ export default function Index() {
         </View>
       ),
     });
-  }, [navigation, token, currentUser, profileName, profileBio, profileAvatarUrl, profileTheme]);
+  }, [navigation, token, currentUser, profileName, profileBio, profileAvatarUrl, profileTheme, handleLogout, handleShareProfile]);
 
   // Folder Actions
   const handleCreateOrUpdateFolder = async () => {
