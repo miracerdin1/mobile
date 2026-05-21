@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -18,7 +19,18 @@ export default function AddLink() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFolders();
+    const init = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        if (token) {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        await fetchFolders();
+      } catch (err) {
+        console.error("Initialization error in AddLink:", err);
+      }
+    };
+    init();
   }, []);
 
   const fetchFolders = async () => {

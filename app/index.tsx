@@ -14,6 +14,7 @@ import {
   StyleSheet,
   View,
   Share,
+  TouchableOpacity,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -31,6 +32,13 @@ import {
 } from "react-native-paper";
 import LinkCard from "../components/LinkCard";
 import Config from "../constants/Config";
+import AuthScreen from "../components/AuthScreen";
+import {
+  connectSocket,
+  disconnectSocket,
+  joinFolderRoom,
+  leaveFolderRoom,
+} from "../services/socket";
 
 const DEFAULT_CATEGORIES = [
   "All",
@@ -68,6 +76,14 @@ const FOLDER_ICONS = [
 export default function Index() {
   const router = useRouter();
   const theme = useTheme();
+  const navigation = useNavigation();
+
+  // Authentication State
+  const [token, setToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // General App State
   const [links, setLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,8 +119,191 @@ export default function Index() {
   const [profileTheme, setProfileTheme] = useState("purple-dark");
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Collaboration State
+  const [collaborationModalVisible, setCollaborationModalVisible] = useState(false);
+  const [inviteUsernameOrEmail, setInviteUsernameOrEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+
+  // 1. Initial Authentication Check
+  const checkAuth = async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem("userToken");
+      const storedUser = await AsyncStorage.getItem("userData");
+      if (storedToken && storedUser) {
+        setToken(storedToken);
+        setCurrentUser(JSON.parse(storedUser));
+        axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+        connectSocket();
+      }
+    } catch (e) {
+      console.error("Auth check failed:", e);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const handleAuthSuccess = (newToken: string, newUser: any) => {
+    setToken(newToken);
+    setCurrentUser(newUser);
+    axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+    connectSocket();
+    
+    setLoading(true);
+    Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() => setLoading(false));
+  };
+
+  const handleLogout = async () => {
+    Alert.alert("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", [
+      { text: "İptal", style: "cancel" },
+      {
+        text: "Çıkış Yap",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await AsyncStorage.removeItem("userToken");
+            await AsyncStorage.removeItem("userData");
+            axios.defaults.headers.common["Authorization"] = "";
+            disconnectSocket();
+            setToken(null);
+            setCurrentUser(null);
+            setLinks([]);
+            setFolders([]);
+            setSelectedFolderId(null);
+          } catch (e) {
+            console.error("Logout failed:", e);
+          }
+        },
+      },
+    ]);
+  };
+
+  // 2. WebSocket Real-time subscriptions
+  useEffect(() => {
+    if (token && selectedFolderId) {
+      joinFolderRoom(selectedFolderId);
+      return () => {
+        leaveFolderRoom(selectedFolderId);
+      };
+    }
+  }, [selectedFolderId, token]);
+
+  useEffect(() => {
+    if (!token || !currentUser) return;
+
+    const activeSocket = connectSocket();
+
+    const handleLinkCreated = (newLink: any) => {
+      console.log("[Socket Event] link_created received:", newLink._id);
+      setLinks((prev) => {
+        if (prev.some((l) => l._id === newLink._id)) return prev;
+        if (selectedFolderId && newLink.folderId !== selectedFolderId) return prev;
+        return [newLink, ...prev];
+      });
+    };
+
+    const handleLinkUpdated = (updatedLink: any) => {
+      console.log("[Socket Event] link_updated received:", updatedLink._id);
+      setLinks((prev) => prev.map((l) => l._id === updatedLink._id ? updatedLink : l));
+    };
+
+    const handleLinkDeleted = (data: { linkId: string }) => {
+      console.log("[Socket Event] link_deleted received:", data.linkId);
+      setLinks((prev) => prev.filter((l) => l._id !== data.linkId));
+    };
+
+    const handleFolderUpdated = (updatedFolder: any) => {
+      console.log("[Socket Event] folder_updated received:", updatedFolder._id);
+      setFolders((prev) => prev.map((f) => f._id === updatedFolder._id ? updatedFolder : f));
+    };
+
+    const handleFolderDeleted = (data: { folderId: string }) => {
+      console.log("[Socket Event] folder_deleted received:", data.folderId);
+      setFolders((prev) => prev.filter((f) => f._id !== data.folderId));
+      if (selectedFolderId === data.folderId) {
+        Alert.alert("Klasör Silindi", "Bu klasörün sahibi klasörü sildi.");
+        setSelectedFolderId(null);
+      }
+    };
+
+    const handleUserRemoved = (data: { userId: string, folderId: string }) => {
+      console.log("[Socket Event] user_removed received for user ID:", data.userId);
+      if (data.userId === currentUser.id) {
+        Alert.alert("Erişim Sonlandırıldı", "Bu ortak klasörün ortaklık listesinden çıkarıldınız.");
+        if (selectedFolderId === data.folderId) {
+          setSelectedFolderId(null);
+        }
+        fetchFolders();
+        fetchLinks();
+      }
+    };
+
+    const refreshEvent = `user_folder_list_refresh_${currentUser.id}`;
+    const handleListRefresh = () => {
+      console.log("[Socket Event] Folder list refresh triggered for user");
+      fetchFolders();
+      fetchLinks();
+    };
+
+    activeSocket.on("link_created", handleLinkCreated);
+    activeSocket.on("link_updated", handleLinkUpdated);
+    activeSocket.on("link_deleted", handleLinkDeleted);
+    activeSocket.on("folder_updated", handleFolderUpdated);
+    activeSocket.on("folder_deleted", handleFolderDeleted);
+    activeSocket.on("user_removed", handleUserRemoved);
+    activeSocket.on(refreshEvent, handleListRefresh);
+
+    return () => {
+      activeSocket.off("link_created", handleLinkCreated);
+      activeSocket.off("link_updated", handleLinkUpdated);
+      activeSocket.off("link_deleted", handleLinkDeleted);
+      activeSocket.off("folder_updated", handleFolderUpdated);
+      activeSocket.off("folder_deleted", handleFolderDeleted);
+      activeSocket.off("user_removed", handleUserRemoved);
+      activeSocket.off(refreshEvent, handleListRefresh);
+    };
+  }, [token, selectedFolderId, currentUser]);
+
+  // 3. Data Fetching
+  const fetchLinks = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/links`);
+      setLinks(response.data);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
+
+  const fetchFolders = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      setFolders(response.data);
+    } catch (err) {
+      console.error("Fetch folders error:", err);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const response = await axios.get(`${Config.API_URL}/api/profile`);
+      if (response.data) {
+        setProfileName(response.data.name || currentUser?.username || "LinkFlow Kullanıcısı");
+        setProfileBio(response.data.bio || "Kaydettiğim harika bağlantılar ve koleksiyonlar.");
+        setProfileAvatarUrl(response.data.avatarUrl || "");
+        setProfileTheme(response.data.theme || "purple-dark");
+      }
+    } catch (err) {
+      console.error("Fetch profile error:", err);
+    }
+  };
+
+  // Clipboard Polling
   const checkClipboard = async () => {
     try {
+      if (!token) return;
       const hasString = await Clipboard.hasStringAsync();
       if (!hasString) return;
 
@@ -124,6 +323,7 @@ export default function Index() {
   };
 
   useEffect(() => {
+    if (!token) return;
     const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
       if (nextAppState === "active") {
         checkClipboard();
@@ -135,7 +335,7 @@ export default function Index() {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     loadCategories();
@@ -163,15 +363,11 @@ export default function Index() {
 
   const moveCategory = (index: number, direction: "up" | "down") => {
     const newCategories = [...categories];
-    // "All" should always be first
     if (index === 0) return;
 
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-
-    // Prevent moving into "All" position (index 0)
     if (targetIndex < 1 || targetIndex >= newCategories.length) return;
 
-    // Swap
     [newCategories[index], newCategories[targetIndex]] = [
       newCategories[targetIndex],
       newCategories[index],
@@ -179,38 +375,7 @@ export default function Index() {
     saveCategories(newCategories);
   };
 
-  const fetchLinks = async () => {
-    try {
-      const response = await axios.get(`${Config.API_URL}/api/links`);
-      setLinks(response.data);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
-
-  const fetchFolders = async () => {
-    try {
-      const response = await axios.get(`${Config.API_URL}/api/folders`);
-      setFolders(response.data);
-    } catch (err) {
-      console.error("Fetch folders error:", err);
-    }
-  };
-
-  const fetchProfile = async () => {
-    try {
-      const response = await axios.get(`${Config.API_URL}/api/profile`);
-      if (response.data) {
-        setProfileName(response.data.name || "Miraç Erdin");
-        setProfileBio(response.data.bio || "Kaydettiğim harika bağlantılar ve koleksiyonlar.");
-        setProfileAvatarUrl(response.data.avatarUrl || "");
-        setProfileTheme(response.data.theme || "purple-dark");
-      }
-    } catch (err) {
-      console.error("Fetch profile error:", err);
-    }
-  };
-
+  // Header Actions
   const handleSaveProfile = async () => {
     if (!profileName.trim()) {
       Alert.alert("Hata", "Profil adı boş olamaz");
@@ -235,7 +400,8 @@ export default function Index() {
 
   const handleShareProfile = async () => {
     try {
-      const shareUrl = `${Config.API_URL.replace("/api", "")}/bio`;
+      if (!currentUser) return;
+      const shareUrl = `${Config.API_URL}/bio/${currentUser.username}`;
       await Share.share({
         message: `LinkFlow Bio Sayfama göz atın: ${shareUrl}`,
         url: shareUrl,
@@ -245,9 +411,8 @@ export default function Index() {
     }
   };
 
-  const navigation = useNavigation();
-
   useEffect(() => {
+    if (!token || !currentUser) return;
     navigation.setOptions({
       headerRight: () => (
         <View style={{ flexDirection: "row", marginRight: -8 }}>
@@ -263,11 +428,18 @@ export default function Index() {
             onPress={handleShareProfile}
             iconColor="#333"
           />
+          <IconButton
+            icon="logout"
+            size={22}
+            onPress={handleLogout}
+            iconColor="#d32f2f"
+          />
         </View>
       ),
     });
-  }, [navigation, profileName, profileBio, profileAvatarUrl, profileTheme]);
+  }, [navigation, token, currentUser, profileName, profileBio, profileAvatarUrl, profileTheme]);
 
+  // Folder Actions
   const handleCreateOrUpdateFolder = async () => {
     if (!folderName.trim()) {
       Alert.alert("Hata", "Klasör adı boş olamaz");
@@ -316,7 +488,7 @@ export default function Index() {
             if (selectedFolderId === id) {
               setSelectedFolderId(null);
             }
-            fetchLinks(); // Reload links to reflect unassigned status
+            fetchLinks(); // Reload links
           } catch (error) {
             Alert.alert("Hata", "Klasör silinemedi");
           }
@@ -325,6 +497,71 @@ export default function Index() {
     ]);
   };
 
+  // Collaborator Actions
+  const handleAddCollaborator = async () => {
+    if (!inviteUsernameOrEmail.trim()) {
+      Alert.alert("Hata", "Lütfen bir kullanıcı adı veya e-posta girin");
+      return;
+    }
+    setInviting(true);
+    try {
+      const response = await axios.post(`${Config.API_URL}/api/folders/${selectedFolderId}/collaborators`, {
+        usernameOrEmail: inviteUsernameOrEmail.trim()
+      });
+      setFolders(prev => prev.map(f => f._id === selectedFolderId ? response.data : f));
+      setInviteUsernameOrEmail("");
+      Alert.alert("Başarılı", "Ortak başarıyla eklendi!");
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error || "Kullanıcı eklenemedi";
+      Alert.alert("Hata", errMsg);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRemoveCollaborator = async (colUserId: string) => {
+    Alert.alert("Ortağı Çıkar", "Bu kullanıcıyı ortaklık listesinden çıkarmak istediğinize emin misiniz?", [
+      { text: "İptal", style: "cancel" },
+      {
+        text: "Çıkar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const response = await axios.delete(
+              `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators/${colUserId}`
+            );
+            setFolders(prev => prev.map(f => f._id === selectedFolderId ? response.data : f));
+          } catch (error) {
+            Alert.alert("Hata", "Ortak çıkarılamadı");
+          }
+        }
+      }
+    ]);
+  };
+
+  const handleLeaveFolder = async () => {
+    Alert.alert("Klasörden Ayrıl", "Bu ortak klasörden ayrılmak istediğinize emin misiniz? Artık bu klasörün içeriğine erişemeyeceksiniz.", [
+      { text: "İptal", style: "cancel" },
+      {
+        text: "Ayrıl",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await axios.post(`${Config.API_URL}/api/folders/${selectedFolderId}/leave`);
+            setSelectedFolderId(null);
+            setCollaborationModalVisible(false);
+            fetchFolders();
+            fetchLinks();
+            Alert.alert("Ayrıldınız", "Klasörden başarıyla ayrıldınız.");
+          } catch (error) {
+            Alert.alert("Hata", "Klasörden ayrılamadı");
+          }
+        }
+      }
+    ]);
+  };
+
+  // Link Actions
   const deleteLinkItem = async (id: string) => {
     try {
       await axios.delete(`${Config.API_URL}/api/links/${id}`);
@@ -369,7 +606,7 @@ export default function Index() {
       setShowClipboardPrompt(false);
       setClipboardUrl(null);
       setClipboardFolderId(null);
-      fetchLinks(); // Refresh the list
+      fetchLinks(); // Refresh
     } catch (error) {
       Alert.alert("Error", "Failed to save link from clipboard");
     } finally {
@@ -388,11 +625,13 @@ export default function Index() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!token) return;
       setLoading(true);
       Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() => setLoading(false));
-    }, [])
+    }, [token])
   );
 
+  // Queries filtering
   const filteredLinks = links.filter((link) => {
     const matchesCategory =
       selectedCategory === "All" || link.category === selectedCategory;
@@ -414,6 +653,24 @@ export default function Index() {
 
     return matchesCategory && matchesFolder && matchesSearch;
   });
+
+  const currentFolder = selectedFolderId
+    ? folders.find((f) => f._id === selectedFolderId)
+    : null;
+
+  // Render Loader if authentication state is loading
+  if (authLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: "#0f0c20", marginTop: 0 }]}>
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
+  // Render Auth overlay if no token
+  if (!token) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -473,27 +730,35 @@ export default function Index() {
           >
             Tümü
           </Chip>
-          {folders.map((folder) => (
-            <Chip
-              key={folder._id}
-              selected={selectedFolderId === folder._id}
-              onPress={() => setSelectedFolderId(folder._id)}
-              style={{
-                marginRight: 8,
-                backgroundColor: selectedFolderId === folder._id ? folder.color : "#f5f5f5",
-                borderColor: folder.color,
-                borderWidth: selectedFolderId === folder._id ? 0 : 1,
-              }}
-              textStyle={{
-                color: selectedFolderId === folder._id ? "#fff" : "#333",
-                fontWeight: selectedFolderId === folder._id ? "bold" : "normal"
-              }}
-              showSelectedOverlay
-              icon={folder.isPublic ? "earth" : (folder.icon || "folder")}
-            >
-              {folder.name}
-            </Chip>
-          ))}
+          {folders.map((folder) => {
+            const isCollaborated = folder.owner && folder.owner._id !== currentUser?.id;
+            const isShared = folder.collaborators && folder.collaborators.length > 0;
+            const chipIcon = isCollaborated || isShared 
+              ? "account-multiple" 
+              : (folder.isPublic ? "earth" : (folder.icon || "folder"));
+
+            return (
+              <Chip
+                key={folder._id}
+                selected={selectedFolderId === folder._id}
+                onPress={() => setSelectedFolderId(folder._id)}
+                style={{
+                  marginRight: 8,
+                  backgroundColor: selectedFolderId === folder._id ? folder.color : "#f5f5f5",
+                  borderColor: folder.color,
+                  borderWidth: selectedFolderId === folder._id ? 0 : 1,
+                }}
+                textStyle={{
+                  color: selectedFolderId === folder._id ? "#fff" : "#333",
+                  fontWeight: selectedFolderId === folder._id ? "bold" : "normal"
+                }}
+                showSelectedOverlay
+                icon={chipIcon}
+              >
+                {folder.name}
+              </Chip>
+            );
+          })}
           <Chip
             onPress={() => {
               setEditingFolder(null);
@@ -510,6 +775,60 @@ export default function Index() {
           </Chip>
         </ScrollView>
       </View>
+
+      {/* Collaboration Banner inside custom selected folder */}
+      {currentFolder && (
+        <View style={styles.collaborationBanner}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <IconButton
+                icon={currentFolder.icon || "folder"}
+                iconColor={currentFolder.color}
+                size={20}
+                style={{ margin: 0, padding: 0 }}
+              />
+              <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#333" }}>
+                {currentFolder.name}
+              </Text>
+            </View>
+            <Text variant="bodySmall" style={{ color: "#666", marginLeft: 8 }}>
+              {currentFolder.owner?._id === currentUser?.id
+                ? "Klasör Sahibi: Sizsiniz"
+                : `Sahibi: @${currentFolder.owner?.username || "Bilinmiyor"}`}
+            </Text>
+          </View>
+          
+          {/* Avatar stack display */}
+          <TouchableOpacity 
+            style={styles.avatarStack} 
+            onPress={() => setCollaborationModalVisible(true)}
+          >
+            {currentFolder.collaborators && currentFolder.collaborators.slice(0, 3).map((col: any) => (
+              <View 
+                key={col._id} 
+                style={[styles.avatarBubble, { backgroundColor: currentFolder.color || "#6200ee" }]}
+              >
+                <Text style={styles.avatarText}>
+                  {(col.username || "U").charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            ))}
+            {currentFolder.collaborators && currentFolder.collaborators.length > 3 && (
+              <View style={[styles.avatarBubble, { backgroundColor: "#666" }]}>
+                <Text style={styles.avatarText}>
+                  +{currentFolder.collaborators.length - 3}
+                </Text>
+              </View>
+            )}
+            <IconButton
+              icon="account-multiple-plus-outline"
+              size={20}
+              iconColor="#6200ee"
+              style={{ margin: 0, marginLeft: 4 }}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Portal>
         {/* Reorder Categories Dialog */}
@@ -569,57 +888,87 @@ export default function Index() {
               {folders.length === 0 ? (
                 <Text style={{ textAlign: "center", marginVertical: 20, color: "#666" }}>Henüz klasör oluşturulmadı.</Text>
               ) : (
-                folders.map((folder) => (
-                  <View
-                    key={folder._id}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                      paddingVertical: 4,
-                      borderBottomWidth: 0.5,
-                      borderBottomColor: "#eee"
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <IconButton
-                        icon={folder.icon || "folder"}
-                        size={20}
-                        iconColor="white"
-                        style={{ backgroundColor: folder.color || "#6200ee", marginRight: 8, margin: 0 }}
-                      />
-                      <View>
-                        <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
-                        {folder.isPublic && (
-                          <Text variant="labelSmall" style={{ color: theme.colors.primary, fontWeight: "bold" }}>
-                            🌐 Herkese Açık
-                          </Text>
+                folders.map((folder) => {
+                  const isOwner = folder.owner?._id === currentUser?.id;
+                  const isCollaborated = folder.owner?._id !== currentUser?.id;
+                  
+                  return (
+                    <View
+                      key={folder._id}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 8,
+                        paddingVertical: 4,
+                        borderBottomWidth: 0.5,
+                        borderBottomColor: "#eee"
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <IconButton
+                          icon={folder.icon || "folder"}
+                          size={20}
+                          iconColor="white"
+                          style={{ backgroundColor: folder.color || "#6200ee", marginRight: 8, margin: 0 }}
+                        />
+                        <View>
+                          <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
+                          {folder.isPublic && (
+                            <Text variant="labelSmall" style={{ color: theme.colors.primary, fontWeight: "bold" }}>
+                              🌐 Herkese Açık
+                            </Text>
+                          )}
+                          {isCollaborated && (
+                            <Text variant="labelSmall" style={{ color: "#d32f2f", fontWeight: "bold" }}>
+                              👥 Ortak Çalışma (Sahibi: @{folder.owner?.username})
+                            </Text>
+                          )}
+                          {!isCollaborated && folder.collaborators?.length > 0 && (
+                            <Text variant="labelSmall" style={{ color: "#2e7d32", fontWeight: "bold" }}>
+                              👥 Paylaşımlı ({folder.collaborators.length} ortak)
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row" }}>
+                        {isOwner && (
+                          <IconButton
+                            icon="pencil"
+                            size={20}
+                            onPress={() => {
+                              setEditingFolder(folder);
+                              setFolderName(folder.name);
+                              setFolderColor(folder.color || "#6200ee");
+                              setFolderIcon(folder.icon || "folder");
+                              setFolderIsPublic(folder.isPublic || false);
+                              setFolderFormVisible(true);
+                            }}
+                          />
+                        )}
+                        {isOwner ? (
+                          <IconButton
+                            icon="delete"
+                            size={20}
+                            iconColor="#d32f2f"
+                            onPress={() => handleDeleteFolder(folder._id)}
+                          />
+                        ) : (
+                          <IconButton
+                            icon="logout"
+                            size={20}
+                            iconColor="#d32f2f"
+                            onPress={() => {
+                              setSelectedFolderId(folder._id);
+                              setCollaborationModalVisible(true);
+                              setManageFoldersVisible(false);
+                            }}
+                          />
                         )}
                       </View>
                     </View>
-                    <View style={{ flexDirection: "row" }}>
-                      <IconButton
-                        icon="pencil"
-                        size={20}
-                        onPress={() => {
-                          setEditingFolder(folder);
-                          setFolderName(folder.name);
-                          setFolderColor(folder.color || "#6200ee");
-                          setFolderIcon(folder.icon || "folder");
-                          setFolderIsPublic(folder.isPublic || false);
-                          setFolderFormVisible(true);
-                        }}
-                      />
-                      <IconButton
-                        icon="delete"
-                        size={20}
-                        iconColor="#d32f2f"
-                        onPress={() => handleDeleteFolder(folder._id)}
-                      />
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </ScrollView>
             <Button
@@ -784,6 +1133,106 @@ export default function Index() {
             <Button mode="contained" onPress={handleSaveProfile} loading={savingProfile} disabled={savingProfile}>Kaydet</Button>
           </Dialog.Actions>
         </Dialog>
+
+        {/* Folder Collaboration Settings Dialog */}
+        <Dialog
+          visible={collaborationModalVisible}
+          onDismiss={() => setCollaborationModalVisible(false)}
+        >
+          <Dialog.Title>👥 Ortak Çalışma Ayarları</Dialog.Title>
+          <Dialog.Content>
+            {currentFolder && (
+              <ScrollView style={{ maxHeight: 350 }}>
+                <Text variant="labelMedium" style={{ fontWeight: "bold", marginBottom: 8, color: "#333" }}>
+                  Klasör: {currentFolder.name}
+                </Text>
+                
+                {/* Active Members List */}
+                <Text variant="labelSmall" style={{ fontWeight: "bold", color: "#666", marginBottom: 6 }}>
+                  Aktif Üyeler:
+                </Text>
+                
+                {/* Owner */}
+                <View style={styles.collabMemberRow}>
+                  <IconButton icon="crown" iconColor="#fbc02d" size={20} style={{ margin: 0 }} />
+                  <Text variant="bodyMedium" style={{ flex: 1, fontWeight: "bold" }}>
+                    @{currentFolder.owner?.username || "Bilinmiyor"} (Klasör Sahibi)
+                  </Text>
+                </View>
+
+                {/* Collaborators */}
+                {currentFolder.collaborators && currentFolder.collaborators.length === 0 ? (
+                  <Text style={styles.emptyCollabText}>Henüz bir ortak eklenmemiş.</Text>
+                ) : (
+                  currentFolder.collaborators && currentFolder.collaborators.map((col: any) => {
+                    const isCurrentUserOwner = currentFolder.owner?._id === currentUser?.id;
+                    
+                    return (
+                      <View key={col._id} style={styles.collabMemberRow}>
+                        <IconButton icon="account" iconColor="#666" size={20} style={{ margin: 0 }} />
+                        <Text variant="bodyMedium" style={{ flex: 1 }}>
+                          @{col.username}
+                        </Text>
+                        {isCurrentUserOwner && (
+                          <IconButton
+                            icon="account-remove"
+                            iconColor="#d32f2f"
+                            size={20}
+                            style={{ margin: 0 }}
+                            onPress={() => handleRemoveCollaborator(col._id)}
+                          />
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+
+                {/* Section to invite collaborators (Owner Only) */}
+                {currentFolder.owner?._id === currentUser?.id ? (
+                  <View style={{ marginTop: 16, borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 16 }}>
+                    <Text variant="labelSmall" style={{ fontWeight: "bold", color: "#666", marginBottom: 8 }}>
+                      Yeni Ortak Davet Et:
+                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <TextInput
+                        label="Kullanıcı Adı veya E-Posta"
+                        value={inviteUsernameOrEmail}
+                        onChangeText={setInviteUsernameOrEmail}
+                        mode="outlined"
+                        autoCapitalize="none"
+                        dense
+                        style={{ flex: 1, height: 42, backgroundColor: "#fff" }}
+                      />
+                      <Button
+                        mode="contained"
+                        onPress={handleAddCollaborator}
+                        loading={inviting}
+                        disabled={inviting}
+                        style={{ marginLeft: 8, height: 42, justifyContent: "center" }}
+                      >
+                        Ekle
+                      </Button>
+                    </View>
+                  </View>
+                ) : (
+                  // Section to leave folder (Collaborators Only)
+                  <Button
+                    mode="contained"
+                    icon="logout"
+                    buttonColor="#d32f2f"
+                    onPress={handleLeaveFolder}
+                    style={{ marginTop: 24 }}
+                  >
+                    Bu Klasörden Ayrıl
+                  </Button>
+                )}
+              </ScrollView>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setCollaborationModalVisible(false)}>Done</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
 
       {loading && links.length === 0 ? (
@@ -818,7 +1267,7 @@ export default function Index() {
           }}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text variant="bodyLarge">No links found.</Text>
+              <Text variant="bodyLarge">Bağlantı bulunamadı.</Text>
             </View>
           }
         />
@@ -918,6 +1367,7 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
+    zIndex: 10,
   },
   clipboardCardContainer: {
     position: "absolute",
@@ -925,6 +1375,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     alignItems: "center",
+    zIndex: 100,
   },
   clipboardCard: {
     backgroundColor: "rgba(255, 255, 255, 0.95)",
@@ -953,5 +1404,48 @@ const styles = StyleSheet.create({
   clipboardActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
+  },
+  collaborationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#e8e5fa",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#dcd6f7",
+  },
+  avatarStack: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: -8,
+    borderWidth: 1.5,
+    borderColor: "#fff",
+    elevation: 1,
+  },
+  avatarText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  collabMemberRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#eee",
+  },
+  emptyCollabText: {
+    textAlign: "center",
+    marginVertical: 12,
+    color: "#666",
+    fontStyle: "italic",
   },
 });
