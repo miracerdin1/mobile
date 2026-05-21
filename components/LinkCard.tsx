@@ -1,5 +1,5 @@
 import React from "react";
-import { Animated, Image, Linking, StyleSheet, View } from "react-native";
+import { Animated, Image, Linking, Share, StyleSheet, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { Card, IconButton, Text, useTheme } from "react-native-paper";
 
@@ -27,6 +27,17 @@ export default function LinkCard({
 
   const handlePress = () => {
     Linking.openURL(url);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: title ? `${title}\n${url}` : url,
+        url: url, // iOS only
+      });
+    } catch (error) {
+      console.error("Error sharing link:", error);
+    }
   };
 
   const renderRightActions = (
@@ -85,6 +96,12 @@ export default function LinkCard({
                   style={{ margin: 0, marginRight: -8 }}
                 />
               )}
+              <IconButton
+                icon="share-variant"
+                size={20}
+                onPress={handleShare}
+                style={{ margin: 0, marginRight: -8 }}
+              />
             </View>
 
             <Text variant="titleMedium" numberOfLines={2} style={styles.title}>
