@@ -113,7 +113,9 @@ export default function Index() {
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [showClipboardPrompt, setShowClipboardPrompt] = useState(false);
   const [savingClipboard, setSavingClipboard] = useState(false);
-  const [clipboardFolderId, setClipboardFolderId] = useState<string | null>(null);
+  const [clipboardFolderId, setClipboardFolderId] = useState<string | null>(
+    null,
+  );
 
   // Custom Folders & Collections State
   const [folders, setFolders] = useState<any[]>([]);
@@ -129,22 +131,31 @@ export default function Index() {
   // Profile/Bio Settings State
   const [bioSettingsVisible, setBioSettingsVisible] = useState(false);
   const [profileName, setProfileName] = useState("Miraç Erdin");
-  const [profileBio, setProfileBio] = useState("Kaydettiğim harika bağlantılar.");
+  const [profileBio, setProfileBio] = useState(
+    "Kaydettiğim harika bağlantılar.",
+  );
   const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
   const [profileTheme, setProfileTheme] = useState("purple-dark");
   const [savingProfile, setSavingProfile] = useState(false);
 
   // Collaboration State
-  const [collaborationModalVisible, setCollaborationModalVisible] = useState(false);
+  const [collaborationModalVisible, setCollaborationModalVisible] =
+    useState(false);
   const [inviteUsernameOrEmail, setInviteUsernameOrEmail] = useState("");
   const [inviting, setInviting] = useState(false);
 
   // Reminder / Notification State
-  const [reminders, setReminders] = useState<{ linkId: string; notificationId: string }[]>([]);
+  const [reminders, setReminders] = useState<
+    { linkId: string; notificationId: string }[]
+  >([]);
   const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
-  const [selectedReminderLink, setSelectedReminderLink] = useState<any | null>(null);
+  const [selectedReminderLink, setSelectedReminderLink] = useState<any | null>(
+    null,
+  );
   const [smartRemindersEnabled, setSmartRemindersEnabled] = useState(false);
-  const [customReminderDate, setCustomReminderDate] = useState<Date>(new Date(Date.now() + 10 * 60 * 1000));
+  const [customReminderDate, setCustomReminderDate] = useState<Date>(
+    new Date(Date.now() + 10 * 60 * 1000),
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [webCustomDateTime, setWebCustomDateTime] = useState("");
@@ -158,7 +169,8 @@ export default function Index() {
       if (storedToken && storedUser) {
         setToken(storedToken);
         setCurrentUser(JSON.parse(storedUser));
-        axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+        axios.defaults.headers.common["Authorization"] =
+          `Bearer ${storedToken}`;
         connectSocket();
       }
     } catch (e) {
@@ -182,7 +194,9 @@ export default function Index() {
           if (storedReminders) {
             setReminders(JSON.parse(storedReminders));
           }
-          const storedSmart = await AsyncStorage.getItem("smartRemindersEnabled");
+          const storedSmart = await AsyncStorage.getItem(
+            "smartRemindersEnabled",
+          );
           if (storedSmart) {
             setSmartRemindersEnabled(JSON.parse(storedSmart));
           }
@@ -215,13 +229,16 @@ export default function Index() {
 
     if (Platform.OS !== "web") {
       // Listener for when a user clicks on a notification
-      const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        const url = response.notification.request.content.data?.url;
-        if (typeof url === "string") {
-          console.log("[Notification Clicked] Opening URL:", url);
-          Linking.openURL(url).catch((err) => console.error("Failed to open URL from notification:", err));
-        }
-      });
+      const responseSubscription =
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          const url = response.notification.request.content.data?.url;
+          if (typeof url === "string") {
+            console.log("[Notification Clicked] Opening URL:", url);
+            Linking.openURL(url).catch((err) =>
+              console.error("Failed to open URL from notification:", err),
+            );
+          }
+        });
 
       return () => {
         responseSubscription.remove();
@@ -234,9 +251,11 @@ export default function Index() {
     setCurrentUser(newUser);
     axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
     connectSocket();
-    
+
     setLoading(true);
-    Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() => setLoading(false));
+    Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
+      setLoading(false),
+    );
   };
 
   const handleLogout = async () => {
@@ -258,7 +277,9 @@ export default function Index() {
     };
 
     if (Platform.OS === "web") {
-      const confirm = window.confirm("Oturumu kapatmak istediğinize emin misiniz?");
+      const confirm = window.confirm(
+        "Oturumu kapatmak istediğinize emin misiniz?",
+      );
       if (confirm) {
         await performLogout();
       }
@@ -293,14 +314,17 @@ export default function Index() {
       console.log("[Socket Event] link_created received:", newLink._id);
       setLinks((prev) => {
         if (prev.some((l) => l._id === newLink._id)) return prev;
-        if (selectedFolderId && newLink.folderId !== selectedFolderId) return prev;
+        if (selectedFolderId && newLink.folderId !== selectedFolderId)
+          return prev;
         return [newLink, ...prev];
       });
     };
 
     const handleLinkUpdated = (updatedLink: any) => {
       console.log("[Socket Event] link_updated received:", updatedLink._id);
-      setLinks((prev) => prev.map((l) => l._id === updatedLink._id ? updatedLink : l));
+      setLinks((prev) =>
+        prev.map((l) => (l._id === updatedLink._id ? updatedLink : l)),
+      );
     };
 
     const handleLinkDeleted = (data: { linkId: string }) => {
@@ -310,7 +334,9 @@ export default function Index() {
 
     const handleFolderUpdated = (updatedFolder: any) => {
       console.log("[Socket Event] folder_updated received:", updatedFolder._id);
-      setFolders((prev) => prev.map((f) => f._id === updatedFolder._id ? updatedFolder : f));
+      setFolders((prev) =>
+        prev.map((f) => (f._id === updatedFolder._id ? updatedFolder : f)),
+      );
     };
 
     const handleFolderDeleted = (data: { folderId: string }) => {
@@ -322,10 +348,16 @@ export default function Index() {
       }
     };
 
-    const handleUserRemoved = (data: { userId: string, folderId: string }) => {
-      console.log("[Socket Event] user_removed received for user ID:", data.userId);
+    const handleUserRemoved = (data: { userId: string; folderId: string }) => {
+      console.log(
+        "[Socket Event] user_removed received for user ID:",
+        data.userId,
+      );
       if (data.userId === currentUser.id) {
-        Alert.alert("Erişim Sonlandırıldı", "Bu ortak klasörün ortaklık listesinden çıkarıldınız.");
+        Alert.alert(
+          "Erişim Sonlandırıldı",
+          "Bu ortak klasörün ortaklık listesinden çıkarıldınız.",
+        );
         if (selectedFolderId === data.folderId) {
           setSelectedFolderId(null);
         }
@@ -387,8 +419,13 @@ export default function Index() {
     try {
       const response = await axios.get(`${Config.API_URL}/api/profile`);
       if (response.data) {
-        setProfileName(response.data.name || currentUser?.username || "LinkFlow Kullanıcısı");
-        setProfileBio(response.data.bio || "Kaydettiğim harika bağlantılar ve koleksiyonlar.");
+        setProfileName(
+          response.data.name || currentUser?.username || "LinkFlow Kullanıcısı",
+        );
+        setProfileBio(
+          response.data.bio ||
+            "Kaydettiğim harika bağlantılar ve koleksiyonlar.",
+        );
         setProfileAvatarUrl(response.data.avatarUrl || "");
         setProfileTheme(response.data.theme || "purple-dark");
       }
@@ -407,8 +444,9 @@ export default function Index() {
       if (!hasString) return;
 
       const content = await Clipboard.getStringAsync();
-      const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?(\?.*)?$/;
-      
+      const urlPattern =
+        /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?(\?.*)?$/;
+
       if (urlPattern.test(content)) {
         const lastSaved = await AsyncStorage.getItem("lastSavedClipboardUrl");
         if (lastSaved !== content) {
@@ -423,11 +461,14 @@ export default function Index() {
 
   useEffect(() => {
     if (!token) return;
-    const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
-      if (nextAppState === "active") {
-        checkClipboard();
-      }
-    });
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        if (nextAppState === "active") {
+          checkClipboard();
+        }
+      },
+    );
 
     checkClipboard(); // Initial check
 
@@ -518,41 +559,87 @@ export default function Index() {
       return;
     }
     navigation.setOptions({
+      headerRightContainerStyle: {
+        justifyContent: "center",
+        alignItems: "center",
+        paddingRight: 8,
+      },
       headerRight: () => (
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "rgba(0, 0, 0, 0.05)",
-          borderRadius: 20,
-          paddingHorizontal: 8,
-          paddingVertical: 2,
-          marginRight: 8,
-        }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#ffffff",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(0, 0, 0, 0.08)",
+            paddingHorizontal: 4,
+            height: 36,
+            alignSelf: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 1,
+          }}
+        >
           <IconButton
             icon="earth"
-            size={20}
+            size={18}
             onPress={() => setBioSettingsVisible(true)}
             iconColor="#333"
-            style={{ margin: 2 }}
+            style={{
+              margin: 0,
+              padding: 0,
+              width: 30,
+              height: 30,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           />
           <IconButton
             icon="share-variant"
-            size={20}
+            size={18}
             onPress={handleShareProfile}
             iconColor="#333"
-            style={{ margin: 2 }}
+            style={{
+              margin: 0,
+              padding: 0,
+              width: 30,
+              height: 30,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           />
           <IconButton
             icon="logout"
-            size={20}
+            size={18}
             onPress={handleLogout}
             iconColor="#d32f2f"
-            style={{ margin: 2 }}
+            style={{
+              margin: 0,
+              padding: 0,
+              width: 30,
+              height: 30,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           />
         </View>
       ),
     });
-  }, [navigation, token, currentUser, profileName, profileBio, profileAvatarUrl, profileTheme, handleLogout, handleShareProfile]);
+  }, [
+    navigation,
+    token,
+    currentUser,
+    profileName,
+    profileBio,
+    profileAvatarUrl,
+    profileTheme,
+    handleLogout,
+    handleShareProfile,
+  ]);
 
   // Folder Actions
   const handleCreateOrUpdateFolder = async () => {
@@ -563,13 +650,18 @@ export default function Index() {
 
     try {
       if (editingFolder) {
-        const response = await axios.put(`${Config.API_URL}/api/folders/${editingFolder._id}`, {
-          name: folderName,
-          color: folderColor,
-          icon: folderIcon,
-          isPublic: folderIsPublic,
-        });
-        setFolders((prev) => prev.map((f) => f._id === editingFolder._id ? response.data : f));
+        const response = await axios.put(
+          `${Config.API_URL}/api/folders/${editingFolder._id}`,
+          {
+            name: folderName,
+            color: folderColor,
+            icon: folderIcon,
+            isPublic: folderIsPublic,
+          },
+        );
+        setFolders((prev) =>
+          prev.map((f) => (f._id === editingFolder._id ? response.data : f)),
+        );
       } else {
         const response = await axios.post(`${Config.API_URL}/api/folders`, {
           name: folderName,
@@ -591,25 +683,29 @@ export default function Index() {
   };
 
   const handleDeleteFolder = async (id: string) => {
-    Alert.alert("Klasörü Sil", "Bu klasörü silmek istediğinize emin misiniz? Klasörün içindeki linkler silinmeyecek, sadece klasörsüz kalacaktır.", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Sil",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await axios.delete(`${Config.API_URL}/api/folders/${id}`);
-            setFolders((prev) => prev.filter((f) => f._id !== id));
-            if (selectedFolderId === id) {
-              setSelectedFolderId(null);
+    Alert.alert(
+      "Klasörü Sil",
+      "Bu klasörü silmek istediğinize emin misiniz? Klasörün içindeki linkler silinmeyecek, sadece klasörsüz kalacaktır.",
+      [
+        { text: "İptal", style: "cancel" },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await axios.delete(`${Config.API_URL}/api/folders/${id}`);
+              setFolders((prev) => prev.filter((f) => f._id !== id));
+              if (selectedFolderId === id) {
+                setSelectedFolderId(null);
+              }
+              fetchLinks(); // Reload links
+            } catch (error) {
+              Alert.alert("Hata", "Klasör silinemedi");
             }
-            fetchLinks(); // Reload links
-          } catch (error) {
-            Alert.alert("Hata", "Klasör silinemedi");
-          }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   // Collaborator Actions
@@ -620,10 +716,15 @@ export default function Index() {
     }
     setInviting(true);
     try {
-      const response = await axios.post(`${Config.API_URL}/api/folders/${selectedFolderId}/collaborators`, {
-        usernameOrEmail: inviteUsernameOrEmail.trim()
-      });
-      setFolders(prev => prev.map(f => f._id === selectedFolderId ? response.data : f));
+      const response = await axios.post(
+        `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators`,
+        {
+          usernameOrEmail: inviteUsernameOrEmail.trim(),
+        },
+      );
+      setFolders((prev) =>
+        prev.map((f) => (f._id === selectedFolderId ? response.data : f)),
+      );
       setInviteUsernameOrEmail("");
       Alert.alert("Başarılı", "Ortak başarıyla eklendi!");
     } catch (error: any) {
@@ -635,52 +736,72 @@ export default function Index() {
   };
 
   const handleRemoveCollaborator = async (colUserId: string) => {
-    Alert.alert("Ortağı Çıkar", "Bu kullanıcıyı ortaklık listesinden çıkarmak istediğinize emin misiniz?", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Çıkar",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const response = await axios.delete(
-              `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators/${colUserId}`
-            );
-            setFolders(prev => prev.map(f => f._id === selectedFolderId ? response.data : f));
-          } catch (error) {
-            Alert.alert("Hata", "Ortak çıkarılamadı");
-          }
-        }
-      }
-    ]);
+    Alert.alert(
+      "Ortağı Çıkar",
+      "Bu kullanıcıyı ortaklık listesinden çıkarmak istediğinize emin misiniz?",
+      [
+        { text: "İptal", style: "cancel" },
+        {
+          text: "Çıkar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await axios.delete(
+                `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators/${colUserId}`,
+              );
+              setFolders((prev) =>
+                prev.map((f) =>
+                  f._id === selectedFolderId ? response.data : f,
+                ),
+              );
+            } catch (error) {
+              Alert.alert("Hata", "Ortak çıkarılamadı");
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleLeaveFolder = async () => {
-    Alert.alert("Klasörden Ayrıl", "Bu ortak klasörden ayrılmak istediğinize emin misiniz? Artık bu klasörün içeriğine erişemeyeceksiniz.", [
-      { text: "İptal", style: "cancel" },
-      {
-        text: "Ayrıl",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await axios.post(`${Config.API_URL}/api/folders/${selectedFolderId}/leave`);
-            setSelectedFolderId(null);
-            setCollaborationModalVisible(false);
-            fetchFolders();
-            fetchLinks();
-            Alert.alert("Ayrıldınız", "Klasörden başarıyla ayrıldınız.");
-          } catch (error) {
-            Alert.alert("Hata", "Klasörden ayrılamadı");
-          }
-        }
-      }
-    ]);
+    Alert.alert(
+      "Klasörden Ayrıl",
+      "Bu ortak klasörden ayrılmak istediğinize emin misiniz? Artık bu klasörün içeriğine erişemeyeceksiniz.",
+      [
+        { text: "İptal", style: "cancel" },
+        {
+          text: "Ayrıl",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await axios.post(
+                `${Config.API_URL}/api/folders/${selectedFolderId}/leave`,
+              );
+              setSelectedFolderId(null);
+              setCollaborationModalVisible(false);
+              fetchFolders();
+              fetchLinks();
+              Alert.alert("Ayrıldınız", "Klasörden başarıyla ayrıldınız.");
+            } catch (error) {
+              Alert.alert("Hata", "Klasörden ayrılamadı");
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Reminder Actions (Daha Sonra Oku Hatırlatıcıları)
   const handleScheduleReminder = async (
     link: any,
-    delayType: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant" | "custom",
-    customDate?: Date
+    delayType:
+      | "1hour"
+      | "evening"
+      | "tomorrow"
+      | "nextweek"
+      | "instant"
+      | "custom",
+    customDate?: Date,
   ) => {
     try {
       // 1. Request permissions first just in case (Native only)
@@ -689,7 +810,10 @@ export default function Index() {
         if (status !== "granted") {
           const req = await Notifications.requestPermissionsAsync();
           if (req.status !== "granted") {
-            Alert.alert("İzin Gerekli", "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.");
+            Alert.alert(
+              "İzin Gerekli",
+              "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.",
+            );
             return;
           }
         }
@@ -712,34 +836,48 @@ export default function Index() {
         if (target.getTime() <= now.getTime()) {
           target.setDate(target.getDate() + 1);
         }
-        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delaySeconds = Math.max(
+          1,
+          Math.round((target.getTime() - now.getTime()) / 1000),
+        );
         delayText = "bu akşam saat 20:00'de";
       } else if (delayType === "tomorrow") {
         const target = new Date();
         target.setDate(target.getDate() + 1);
         target.setHours(9, 0, 0, 0);
-        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delaySeconds = Math.max(
+          1,
+          Math.round((target.getTime() - now.getTime()) / 1000),
+        );
         delayText = "yarın sabah saat 09:00'da";
       } else if (delayType === "nextweek") {
         const target = new Date();
         target.setDate(target.getDate() + ((1 + 7 - target.getDay()) % 7 || 7));
         target.setHours(9, 0, 0, 0);
-        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delaySeconds = Math.max(
+          1,
+          Math.round((target.getTime() - now.getTime()) / 1000),
+        );
         delayText = "gelecek Pazartesi sabah saat 09:00'da";
       } else if (delayType === "custom" && customDate) {
         const diffMs = customDate.getTime() - now.getTime();
         if (diffMs <= 0) {
-          Alert.alert("Geçersiz Zaman", "Lütfen gelecekteki bir tarih ve saat seçin.");
+          Alert.alert(
+            "Geçersiz Zaman",
+            "Lütfen gelecekteki bir tarih ve saat seçin.",
+          );
           return;
         }
         delaySeconds = Math.max(1, Math.round(diffMs / 1000));
-        delayText = `${customDate.toLocaleDateString("tr-TR")} saat ${customDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })} için`;
+        delayText = `${customDate.toLocaleDateString("tr-TR")} saat ${customDate.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} için`;
       }
 
       // 3. Cancel any existing reminder for this specific link first
       const existing = reminders.find((r) => r.linkId === link._id);
       if (existing && Platform.OS !== "web") {
-        await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+        await Notifications.cancelScheduledNotificationAsync(
+          existing.notificationId,
+        );
       }
 
       // 4. Schedule local notification / Web simulated notification
@@ -748,16 +886,18 @@ export default function Index() {
         notificationId = `web-${Date.now()}-${Math.random()}`;
         // Standard Web simulator using setTimeout
         setTimeout(() => {
-          const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?\n\nLink: ${link.url}`;
+          const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?\n\nLink: ${link.url}`;
           if (confirm(message)) {
-            Linking.openURL(link.url).catch((err) => console.error("Failed to open URL:", err));
+            Linking.openURL(link.url).catch((err) =>
+              console.error("Failed to open URL:", err),
+            );
           }
         }, delaySeconds * 1000);
       } else {
         notificationId = await Notifications.scheduleNotificationAsync({
           content: {
             title: "Daha Sonra Oku 🔔",
-            body: `Kaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?`,
+            body: `Kaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?`,
             data: { url: link.url },
           },
           trigger: {
@@ -769,15 +909,21 @@ export default function Index() {
 
       // 5. Update state and AsyncStorage
       const updatedReminders = reminders.filter((r) => r.linkId !== link._id);
-      const newReminders = [...updatedReminders, { linkId: link._id, notificationId }];
-      
+      const newReminders = [
+        ...updatedReminders,
+        { linkId: link._id, notificationId },
+      ];
+
       setReminders(newReminders);
-      await AsyncStorage.setItem("activeReminders", JSON.stringify(newReminders));
+      await AsyncStorage.setItem(
+        "activeReminders",
+        JSON.stringify(newReminders),
+      );
       setReminderDialogVisible(false);
 
       Alert.alert(
         "Hatırlatıcı Kuruldu 🔔",
-        `"${link.title || 'Bağlantı'}" için hatırlatıcı ${delayText} çalışacak şekilde başarıyla ayarlandı.`
+        `"${link.title || "Bağlantı"}" için hatırlatıcı ${delayText} çalışacak şekilde başarıyla ayarlandı.`,
       );
     } catch (error) {
       console.error("Failed to schedule reminder:", error);
@@ -792,9 +938,13 @@ export default function Index() {
     }
     if (selectedDate) {
       const newDate = new Date(customReminderDate);
-      newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      newDate.setFullYear(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+      );
       setCustomReminderDate(newDate);
-      
+
       // Auto-open time picker on Native for a seamless wizard flow
       if (Platform.OS !== "web") {
         setTimeout(() => {
@@ -821,14 +971,16 @@ export default function Index() {
       const existing = reminders.find((r) => r.linkId === linkId);
       if (existing) {
         if (Platform.OS !== "web") {
-          await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+          await Notifications.cancelScheduledNotificationAsync(
+            existing.notificationId,
+          );
         }
-        
+
         const updated = reminders.filter((r) => r.linkId !== linkId);
         setReminders(updated);
         await AsyncStorage.setItem("activeReminders", JSON.stringify(updated));
       }
-      
+
       setReminderDialogVisible(false);
       Alert.alert("İptal Edildi 🔕", "Hatırlatıcı başarıyla iptal edildi.");
     } catch (error) {
@@ -840,12 +992,19 @@ export default function Index() {
   const handleToggleSmartReminders = async (enabled: boolean) => {
     try {
       setSmartRemindersEnabled(enabled);
-      await AsyncStorage.setItem("smartRemindersEnabled", JSON.stringify(enabled));
+      await AsyncStorage.setItem(
+        "smartRemindersEnabled",
+        JSON.stringify(enabled),
+      );
 
-      const smartNotificationId = await AsyncStorage.getItem("smartNotificationId");
+      const smartNotificationId = await AsyncStorage.getItem(
+        "smartNotificationId",
+      );
       if (smartNotificationId) {
         if (Platform.OS !== "web") {
-          await Notifications.cancelScheduledNotificationAsync(smartNotificationId);
+          await Notifications.cancelScheduledNotificationAsync(
+            smartNotificationId,
+          );
         }
         await AsyncStorage.removeItem("smartNotificationId");
       }
@@ -854,7 +1013,10 @@ export default function Index() {
         let notificationId = "";
         if (Platform.OS === "web") {
           notificationId = `web-smart-${Date.now()}`;
-          Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+          Alert.alert(
+            "Akıllı Hatırlatıcı Aktif 🔔",
+            "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
+          );
         } else {
           notificationId = await Notifications.scheduleNotificationAsync({
             content: {
@@ -871,10 +1033,16 @@ export default function Index() {
         }
         await AsyncStorage.setItem("smartNotificationId", notificationId);
         if (Platform.OS !== "web") {
-          Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+          Alert.alert(
+            "Akıllı Hatırlatıcı Aktif 🔔",
+            "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
+          );
         }
       } else {
-        Alert.alert("Devre Dışı Bırakıldı 🔕", "Akıllı okuma hatırlatıcıları kapatıldı.");
+        Alert.alert(
+          "Devre Dışı Bırakıldı 🔕",
+          "Akıllı okuma hatırlatıcıları kapatıldı.",
+        );
       }
     } catch (error) {
       console.error("Smart reminder toggle failed:", error);
@@ -947,8 +1115,10 @@ export default function Index() {
     useCallback(() => {
       if (!token) return;
       setLoading(true);
-      Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() => setLoading(false));
-    }, [token])
+      Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
+        setLoading(false),
+      );
+    }, [token]),
   );
 
   // Queries filtering
@@ -981,7 +1151,9 @@ export default function Index() {
   // Render Loader if authentication state is loading
   if (authLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: "#0f0c20", marginTop: 0 }]}>
+      <View
+        style={[styles.center, { backgroundColor: "#0f0c20", marginTop: 0 }]}
+      >
         <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
@@ -994,7 +1166,9 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <View style={{ paddingVertical: 8, backgroundColor: "white", elevation: 2 }}>
+      <View
+        style={{ paddingVertical: 8, backgroundColor: "white", elevation: 2 }}
+      >
         <Searchbar
           placeholder="Search links..."
           onChangeText={setSearchQuery}
@@ -1028,10 +1202,36 @@ export default function Index() {
       </View>
 
       {/* Folders horizontal container */}
-      <View style={{ backgroundColor: "white", paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#333" }}>Klasörler</Text>
-          <Button icon="folder-edit-outline" compact mode="text" onPress={() => setManageFoldersVisible(true)}>
+      <View
+        style={{
+          backgroundColor: "white",
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: "#eee",
+        }}
+      >
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: 4,
+            paddingBottom: 4,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text
+            variant="titleMedium"
+            style={{ fontWeight: "bold", color: "#333" }}
+          >
+            Klasörler
+          </Text>
+          <Button
+            icon="folder-edit-outline"
+            compact
+            mode="text"
+            onPress={() => setManageFoldersVisible(true)}
+          >
             Yönet
           </Button>
         </View>
@@ -1043,19 +1243,35 @@ export default function Index() {
           <Chip
             selected={selectedFolderId === null}
             onPress={() => setSelectedFolderId(null)}
-            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
-            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+            style={{
+              marginRight: 8,
+              backgroundColor:
+                selectedFolderId === null
+                  ? theme.colors.primaryContainer
+                  : "#f5f5f5",
+            }}
+            textStyle={{
+              color:
+                selectedFolderId === null
+                  ? theme.colors.onPrimaryContainer
+                  : "#666",
+            }}
             showSelectedOverlay
             icon="folder-open"
           >
             Tümü
           </Chip>
           {folders.map((folder) => {
-            const isCollaborated = folder.owner && folder.owner._id !== currentUser?.id;
-            const isShared = folder.collaborators && folder.collaborators.length > 0;
-            const chipIcon = isCollaborated || isShared 
-              ? "account-multiple" 
-              : (folder.isPublic ? "earth" : (folder.icon || "folder"));
+            const isCollaborated =
+              folder.owner && folder.owner._id !== currentUser?.id;
+            const isShared =
+              folder.collaborators && folder.collaborators.length > 0;
+            const chipIcon =
+              isCollaborated || isShared
+                ? "account-multiple"
+                : folder.isPublic
+                  ? "earth"
+                  : folder.icon || "folder";
 
             return (
               <Chip
@@ -1064,13 +1280,15 @@ export default function Index() {
                 onPress={() => setSelectedFolderId(folder._id)}
                 style={{
                   marginRight: 8,
-                  backgroundColor: selectedFolderId === folder._id ? folder.color : "#f5f5f5",
+                  backgroundColor:
+                    selectedFolderId === folder._id ? folder.color : "#f5f5f5",
                   borderColor: folder.color,
                   borderWidth: selectedFolderId === folder._id ? 0 : 1,
                 }}
                 textStyle={{
                   color: selectedFolderId === folder._id ? "#fff" : "#333",
-                  fontWeight: selectedFolderId === folder._id ? "bold" : "normal"
+                  fontWeight:
+                    selectedFolderId === folder._id ? "bold" : "normal",
                 }}
                 showSelectedOverlay
                 icon={chipIcon}
@@ -1099,13 +1317,26 @@ export default function Index() {
       {/* Connection error banner */}
       {fetchError && (
         <View style={styles.connectionErrorBanner}>
-          <IconButton icon="wifi-strength-1-alert" iconColor="#d32f2f" size={24} style={{ margin: 0 }} />
+          <IconButton
+            icon="wifi-strength-1-alert"
+            iconColor="#d32f2f"
+            size={24}
+            style={{ margin: 0 }}
+          />
           <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text variant="titleSmall" style={{ fontWeight: "bold", color: "#d32f2f" }}>
+            <Text
+              variant="titleSmall"
+              style={{ fontWeight: "bold", color: "#d32f2f" }}
+            >
               Bağlantı Hatası
             </Text>
-            <Text variant="bodySmall" style={{ color: "#c62828", lineHeight: 16 }}>
-              Sunucu uykuda olabilir (Render ücretsiz plan uyanması ~30-50 sn sürebilir) veya internet bağlantınız kesilmiştir. Yenilemek için lütfen ekranı aşağı kaydırın.
+            <Text
+              variant="bodySmall"
+              style={{ color: "#c62828", lineHeight: 16 }}
+            >
+              Sunucu uykuda olabilir (Render ücretsiz plan uyanması ~30-50 sn
+              sürebilir) veya internet bağlantınız kesilmiştir. Yenilemek için
+              lütfen ekranı aşağı kaydırın.
             </Text>
           </View>
           <IconButton
@@ -1129,7 +1360,10 @@ export default function Index() {
                 size={20}
                 style={{ margin: 0, padding: 0 }}
               />
-              <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#333" }}>
+              <Text
+                variant="titleMedium"
+                style={{ fontWeight: "bold", color: "#333" }}
+              >
                 {currentFolder.name}
               </Text>
             </View>
@@ -1139,29 +1373,36 @@ export default function Index() {
                 : `Sahibi: @${currentFolder.owner?.username || "Bilinmiyor"}`}
             </Text>
           </View>
-          
+
           {/* Avatar stack display */}
-          <TouchableOpacity 
-            style={styles.avatarStack} 
+          <TouchableOpacity
+            style={styles.avatarStack}
             onPress={() => setCollaborationModalVisible(true)}
           >
-            {currentFolder.collaborators && currentFolder.collaborators.slice(0, 3).map((col: any) => (
-              <View 
-                key={col._id} 
-                style={[styles.avatarBubble, { backgroundColor: currentFolder.color || "#6200ee" }]}
-              >
-                <Text style={styles.avatarText}>
-                  {(col.username || "U").charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            ))}
-            {currentFolder.collaborators && currentFolder.collaborators.length > 3 && (
-              <View style={[styles.avatarBubble, { backgroundColor: "#666" }]}>
-                <Text style={styles.avatarText}>
-                  +{currentFolder.collaborators.length - 3}
-                </Text>
-              </View>
-            )}
+            {currentFolder.collaborators &&
+              currentFolder.collaborators.slice(0, 3).map((col: any) => (
+                <View
+                  key={col._id}
+                  style={[
+                    styles.avatarBubble,
+                    { backgroundColor: currentFolder.color || "#6200ee" },
+                  ]}
+                >
+                  <Text style={styles.avatarText}>
+                    {(col.username || "U").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              ))}
+            {currentFolder.collaborators &&
+              currentFolder.collaborators.length > 3 && (
+                <View
+                  style={[styles.avatarBubble, { backgroundColor: "#666" }]}
+                >
+                  <Text style={styles.avatarText}>
+                    +{currentFolder.collaborators.length - 3}
+                  </Text>
+                </View>
+              )}
             <IconButton
               icon="account-multiple-plus-outline"
               size={20}
@@ -1228,12 +1469,20 @@ export default function Index() {
           <Dialog.Content>
             <ScrollView style={{ maxHeight: 300 }}>
               {folders.length === 0 ? (
-                <Text style={{ textAlign: "center", marginVertical: 20, color: "#666" }}>Henüz klasör oluşturulmadı.</Text>
+                <Text
+                  style={{
+                    textAlign: "center",
+                    marginVertical: 20,
+                    color: "#666",
+                  }}
+                >
+                  Henüz klasör oluşturulmadı.
+                </Text>
               ) : (
                 folders.map((folder) => {
                   const isOwner = folder.owner?._id === currentUser?.id;
                   const isCollaborated = folder.owner?._id !== currentUser?.id;
-                  
+
                   return (
                     <View
                       key={folder._id}
@@ -1244,33 +1493,59 @@ export default function Index() {
                         marginBottom: 8,
                         paddingVertical: 4,
                         borderBottomWidth: 0.5,
-                        borderBottomColor: "#eee"
+                        borderBottomColor: "#eee",
                       }}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View
+                        style={{ flexDirection: "row", alignItems: "center" }}
+                      >
                         <IconButton
                           icon={folder.icon || "folder"}
                           size={20}
                           iconColor="white"
-                          style={{ backgroundColor: folder.color || "#6200ee", marginRight: 8, margin: 0 }}
+                          style={{
+                            backgroundColor: folder.color || "#6200ee",
+                            marginRight: 8,
+                            margin: 0,
+                          }}
                         />
                         <View>
-                          <Text variant="bodyMedium" style={{ fontWeight: "bold" }}>{folder.name}</Text>
+                          <Text
+                            variant="bodyMedium"
+                            style={{ fontWeight: "bold" }}
+                          >
+                            {folder.name}
+                          </Text>
                           {folder.isPublic && (
-                            <Text variant="labelSmall" style={{ color: theme.colors.primary, fontWeight: "bold" }}>
+                            <Text
+                              variant="labelSmall"
+                              style={{
+                                color: theme.colors.primary,
+                                fontWeight: "bold",
+                              }}
+                            >
                               🌐 Herkese Açık
                             </Text>
                           )}
                           {isCollaborated && (
-                            <Text variant="labelSmall" style={{ color: "#d32f2f", fontWeight: "bold" }}>
-                              👥 Ortak Çalışma (Sahibi: @{folder.owner?.username})
+                            <Text
+                              variant="labelSmall"
+                              style={{ color: "#d32f2f", fontWeight: "bold" }}
+                            >
+                              👥 Ortak Çalışma (Sahibi: @
+                              {folder.owner?.username})
                             </Text>
                           )}
-                          {!isCollaborated && folder.collaborators?.length > 0 && (
-                            <Text variant="labelSmall" style={{ color: "#2e7d32", fontWeight: "bold" }}>
-                              👥 Paylaşımlı ({folder.collaborators.length} ortak)
-                            </Text>
-                          )}
+                          {!isCollaborated &&
+                            folder.collaborators?.length > 0 && (
+                              <Text
+                                variant="labelSmall"
+                                style={{ color: "#2e7d32", fontWeight: "bold" }}
+                              >
+                                👥 Paylaşımlı ({folder.collaborators.length}{" "}
+                                ortak)
+                              </Text>
+                            )}
                         </View>
                       </View>
                       <View style={{ flexDirection: "row" }}>
@@ -1330,7 +1605,9 @@ export default function Index() {
             </Button>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setManageFoldersVisible(false)}>Kapat</Button>
+            <Button onPress={() => setManageFoldersVisible(false)}>
+              Kapat
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -1339,7 +1616,9 @@ export default function Index() {
           visible={folderFormVisible}
           onDismiss={() => setFolderFormVisible(false)}
         >
-          <Dialog.Title>{editingFolder ? "Klasörü Düzenle" : "Yeni Klasör Oluştur"}</Dialog.Title>
+          <Dialog.Title>
+            {editingFolder ? "Klasörü Düzenle" : "Yeni Klasör Oluştur"}
+          </Dialog.Title>
           <Dialog.Content>
             <TextInput
               label="Klasör Adı"
@@ -1349,10 +1628,21 @@ export default function Index() {
               style={{ marginBottom: 16 }}
             />
 
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Text variant="labelMedium" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
-                <Text variant="bodySmall" style={{ color: "#666" }}>Bio sayfasında klasör içeriğini gösterir</Text>
+                <Text variant="labelMedium" style={{ fontWeight: "bold" }}>
+                  Herkese Açık
+                </Text>
+                <Text variant="bodySmall" style={{ color: "#666" }}>
+                  Bio sayfasında klasör içeriğini gösterir
+                </Text>
               </View>
               <Switch
                 value={folderIsPublic}
@@ -1360,9 +1650,21 @@ export default function Index() {
                 color={folderColor}
               />
             </View>
-            
-            <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>Renk Seçin</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 16, justifyContent: "space-between" }}>
+
+            <Text
+              variant="labelLarge"
+              style={{ marginBottom: 8, fontWeight: "bold" }}
+            >
+              Renk Seçin
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                marginBottom: 16,
+                justifyContent: "space-between",
+              }}
+            >
               {FOLDER_COLORS.map((c) => (
                 <View
                   key={c}
@@ -1380,8 +1682,17 @@ export default function Index() {
               ))}
             </View>
 
-            <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>İkon Seçin</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <Text
+              variant="labelLarge"
+              style={{ marginBottom: 8, fontWeight: "bold" }}
+            >
+              İkon Seçin
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 8 }}
+            >
               {FOLDER_ICONS.map((i) => (
                 <IconButton
                   key={i}
@@ -1400,7 +1711,9 @@ export default function Index() {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setFolderFormVisible(false)}>İptal</Button>
-            <Button mode="contained" onPress={handleCreateOrUpdateFolder}>Kaydet</Button>
+            <Button mode="contained" onPress={handleCreateOrUpdateFolder}>
+              Kaydet
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -1419,7 +1732,7 @@ export default function Index() {
                 mode="outlined"
                 style={{ marginBottom: 12 }}
               />
-              
+
               <TextInput
                 label="Kısa Açıklama (Bio)"
                 value={profileBio}
@@ -1440,13 +1753,45 @@ export default function Index() {
                 style={{ marginBottom: 16 }}
               />
 
-              <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>Görsel Tema</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8, gap: 8 }}>
+              <Text
+                variant="labelLarge"
+                style={{ marginBottom: 8, fontWeight: "bold" }}
+              >
+                Görsel Tema
+              </Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  marginBottom: 8,
+                  gap: 8,
+                }}
+              >
                 {[
-                  { id: "purple-dark", name: "Mor Karanlık", bg: "#1f1c2c", text: "#fff" },
-                  { id: "sunset", name: "Günbatımı", bg: "#ff5e62", text: "#fff" },
-                  { id: "nordic-light", name: "Kuzey Işığı", bg: "#eef2f3", text: "#2c3e50" },
-                  { id: "glassmorphic", name: "Buzlu Cam", bg: "#1a1a2e", text: "#fff" }
+                  {
+                    id: "purple-dark",
+                    name: "Mor Karanlık",
+                    bg: "#1f1c2c",
+                    text: "#fff",
+                  },
+                  {
+                    id: "sunset",
+                    name: "Günbatımı",
+                    bg: "#ff5e62",
+                    text: "#fff",
+                  },
+                  {
+                    id: "nordic-light",
+                    name: "Kuzey Işığı",
+                    bg: "#eef2f3",
+                    text: "#2c3e50",
+                  },
+                  {
+                    id: "glassmorphic",
+                    name: "Buzlu Cam",
+                    bg: "#1a1a2e",
+                    text: "#fff",
+                  },
                 ].map((t) => (
                   <Chip
                     key={t.id}
@@ -1454,14 +1799,15 @@ export default function Index() {
                     onPress={() => setProfileTheme(t.id)}
                     style={{
                       backgroundColor: profileTheme === t.id ? t.bg : "#f0f0f0",
-                      borderColor: profileTheme === t.id ? theme.colors.primary : "#ccc",
+                      borderColor:
+                        profileTheme === t.id ? theme.colors.primary : "#ccc",
                       borderWidth: profileTheme === t.id ? 2 : 0,
                       marginRight: 4,
                       marginBottom: 8,
                     }}
                     textStyle={{
                       color: profileTheme === t.id ? t.text : "#333",
-                      fontWeight: profileTheme === t.id ? "bold" : "normal"
+                      fontWeight: profileTheme === t.id ? "bold" : "normal",
                     }}
                   >
                     {t.name}
@@ -1471,8 +1817,20 @@ export default function Index() {
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setBioSettingsVisible(false)} disabled={savingProfile}>İptal</Button>
-            <Button mode="contained" onPress={handleSaveProfile} loading={savingProfile} disabled={savingProfile}>Kaydet</Button>
+            <Button
+              onPress={() => setBioSettingsVisible(false)}
+              disabled={savingProfile}
+            >
+              İptal
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleSaveProfile}
+              loading={savingProfile}
+              disabled={savingProfile}
+            >
+              Kaydet
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -1485,33 +1843,58 @@ export default function Index() {
           <Dialog.Content>
             {currentFolder && (
               <ScrollView style={{ maxHeight: 350 }}>
-                <Text variant="labelMedium" style={{ fontWeight: "bold", marginBottom: 8, color: "#333" }}>
+                <Text
+                  variant="labelMedium"
+                  style={{ fontWeight: "bold", marginBottom: 8, color: "#333" }}
+                >
                   Klasör: {currentFolder.name}
                 </Text>
-                
+
                 {/* Active Members List */}
-                <Text variant="labelSmall" style={{ fontWeight: "bold", color: "#666", marginBottom: 6 }}>
+                <Text
+                  variant="labelSmall"
+                  style={{ fontWeight: "bold", color: "#666", marginBottom: 6 }}
+                >
                   Aktif Üyeler:
                 </Text>
-                
+
                 {/* Owner */}
                 <View style={styles.collabMemberRow}>
-                  <IconButton icon="crown" iconColor="#fbc02d" size={20} style={{ margin: 0 }} />
-                  <Text variant="bodyMedium" style={{ flex: 1, fontWeight: "bold" }}>
-                    @{currentFolder.owner?.username || "Bilinmiyor"} (Klasör Sahibi)
+                  <IconButton
+                    icon="crown"
+                    iconColor="#fbc02d"
+                    size={20}
+                    style={{ margin: 0 }}
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    style={{ flex: 1, fontWeight: "bold" }}
+                  >
+                    @{currentFolder.owner?.username || "Bilinmiyor"} (Klasör
+                    Sahibi)
                   </Text>
                 </View>
 
                 {/* Collaborators */}
-                {currentFolder.collaborators && currentFolder.collaborators.length === 0 ? (
-                  <Text style={styles.emptyCollabText}>Henüz bir ortak eklenmemiş.</Text>
+                {currentFolder.collaborators &&
+                currentFolder.collaborators.length === 0 ? (
+                  <Text style={styles.emptyCollabText}>
+                    Henüz bir ortak eklenmemiş.
+                  </Text>
                 ) : (
-                  currentFolder.collaborators && currentFolder.collaborators.map((col: any) => {
-                    const isCurrentUserOwner = currentFolder.owner?._id === currentUser?.id;
-                    
+                  currentFolder.collaborators &&
+                  currentFolder.collaborators.map((col: any) => {
+                    const isCurrentUserOwner =
+                      currentFolder.owner?._id === currentUser?.id;
+
                     return (
                       <View key={col._id} style={styles.collabMemberRow}>
-                        <IconButton icon="account" iconColor="#666" size={20} style={{ margin: 0 }} />
+                        <IconButton
+                          icon="account"
+                          iconColor="#666"
+                          size={20}
+                          style={{ margin: 0 }}
+                        />
                         <Text variant="bodyMedium" style={{ flex: 1 }}>
                           @{col.username}
                         </Text>
@@ -1531,11 +1914,27 @@ export default function Index() {
 
                 {/* Section to invite collaborators (Owner Only) */}
                 {currentFolder.owner?._id === currentUser?.id ? (
-                  <View style={{ marginTop: 16, borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 16 }}>
-                    <Text variant="labelSmall" style={{ fontWeight: "bold", color: "#666", marginBottom: 8 }}>
+                  <View
+                    style={{
+                      marginTop: 16,
+                      borderTopWidth: 0.5,
+                      borderTopColor: "#eee",
+                      paddingTop: 16,
+                    }}
+                  >
+                    <Text
+                      variant="labelSmall"
+                      style={{
+                        fontWeight: "bold",
+                        color: "#666",
+                        marginBottom: 8,
+                      }}
+                    >
                       Yeni Ortak Davet Et:
                     </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
                       <TextInput
                         label="Kullanıcı Adı veya E-Posta"
                         value={inviteUsernameOrEmail}
@@ -1550,7 +1949,11 @@ export default function Index() {
                         onPress={handleAddCollaborator}
                         loading={inviting}
                         disabled={inviting}
-                        style={{ marginLeft: 8, height: 42, justifyContent: "center" }}
+                        style={{
+                          marginLeft: 8,
+                          height: 42,
+                          justifyContent: "center",
+                        }}
                       >
                         Ekle
                       </Button>
@@ -1572,7 +1975,9 @@ export default function Index() {
             )}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setCollaborationModalVisible(false)}>Done</Button>
+            <Button onPress={() => setCollaborationModalVisible(false)}>
+              Done
+            </Button>
           </Dialog.Actions>
         </Dialog>
 
@@ -1582,20 +1987,47 @@ export default function Index() {
           onDismiss={() => setReminderDialogVisible(false)}
           style={{ borderRadius: 20, backgroundColor: "#ffffff" }}
         >
-          <Dialog.Title style={{ textAlign: "center", fontWeight: "bold", color: "#1a1a2e" }}>
+          <Dialog.Title
+            style={{
+              textAlign: "center",
+              fontWeight: "bold",
+              color: "#1a1a2e",
+            }}
+          >
             🔔 Hatırlatıcı Ayarla
           </Dialog.Title>
           <Dialog.Content>
             {selectedReminderLink && (
-              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-                <Text variant="titleSmall" style={{ fontWeight: "bold", marginBottom: 4, color: "#1a1a2e" }}>
+              <ScrollView
+                style={{ maxHeight: 380 }}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text
+                  variant="titleSmall"
+                  style={{
+                    fontWeight: "bold",
+                    marginBottom: 4,
+                    color: "#1a1a2e",
+                  }}
+                >
                   Seçilen Bağlantı:
                 </Text>
-                <Text variant="bodyMedium" style={{ color: "#666", marginBottom: 16, lineHeight: 20 }} numberOfLines={2}>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: "#666", marginBottom: 16, lineHeight: 20 }}
+                  numberOfLines={2}
+                >
                   {selectedReminderLink.title || selectedReminderLink.url}
                 </Text>
 
-                <Text variant="labelLarge" style={{ fontWeight: "bold", marginBottom: 8, color: "#1a1a2e" }}>
+                <Text
+                  variant="labelLarge"
+                  style={{
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                    color: "#1a1a2e",
+                  }}
+                >
                   📅 Tarih & Saat Seç:
                 </Text>
 
@@ -1627,7 +2059,11 @@ export default function Index() {
                       onPress={() => {
                         if (webCustomDateTime) {
                           const chosenDate = new Date(webCustomDateTime);
-                          handleScheduleReminder(selectedReminderLink, "custom", chosenDate);
+                          handleScheduleReminder(
+                            selectedReminderLink,
+                            "custom",
+                            chosenDate,
+                          );
                         }
                       }}
                       style={styles.customReminderButton}
@@ -1639,8 +2075,25 @@ export default function Index() {
                 ) : (
                   <View style={{ marginBottom: 16 }}>
                     {Platform.OS === "ios" ? (
-                      <View style={{ marginBottom: 12, backgroundColor: "#f5f3ff", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10 }}>
-                        <Text variant="labelSmall" style={{ color: "#6200ee", fontWeight: "bold", marginBottom: 8 }}>Tarih & Saat Seçin:</Text>
+                      <View
+                        style={{
+                          marginBottom: 12,
+                          backgroundColor: "#f5f3ff",
+                          borderRadius: 14,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                        }}
+                      >
+                        <Text
+                          variant="labelSmall"
+                          style={{
+                            color: "#6200ee",
+                            fontWeight: "bold",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Tarih & Saat Seçin:
+                        </Text>
                         <View style={{ alignItems: "center", width: "100%" }}>
                           <DateTimePicker
                             value={customReminderDate}
@@ -1656,19 +2109,41 @@ export default function Index() {
                       </View>
                     ) : (
                       <>
-                        <TouchableOpacity 
-                          style={styles.dateTimePickerCard} 
+                        <TouchableOpacity
+                          style={styles.dateTimePickerCard}
                           onPress={() => setShowDatePicker(true)}
                           activeOpacity={0.8}
                         >
-                          <IconButton icon="calendar-clock" iconColor="#6200ee" size={26} style={{ margin: 0 }} />
+                          <IconButton
+                            icon="calendar-clock"
+                            iconColor="#6200ee"
+                            size={26}
+                            style={{ margin: 0 }}
+                          />
                           <View style={{ flex: 1, marginLeft: 4 }}>
-                            <Text variant="labelSmall" style={{ color: "#666", fontWeight: "bold" }}>Kurulacak Zaman:</Text>
-                            <Text variant="titleMedium" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
-                              {customReminderDate.toLocaleDateString("tr-TR")} - {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                            <Text
+                              variant="labelSmall"
+                              style={{ color: "#666", fontWeight: "bold" }}
+                            >
+                              Kurulacak Zaman:
+                            </Text>
+                            <Text
+                              variant="titleMedium"
+                              style={{ fontWeight: "bold", color: "#1a1a2e" }}
+                            >
+                              {customReminderDate.toLocaleDateString("tr-TR")} -{" "}
+                              {customReminderDate.toLocaleTimeString("tr-TR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </Text>
                           </View>
-                          <IconButton icon="chevron-right" iconColor="#666" size={20} style={{ margin: 0 }} />
+                          <IconButton
+                            icon="chevron-right"
+                            iconColor="#666"
+                            size={20}
+                            style={{ margin: 0 }}
+                          />
                         </TouchableOpacity>
 
                         {showDatePicker && (
@@ -1694,7 +2169,13 @@ export default function Index() {
                     <Button
                       mode="contained"
                       icon="bell-plus"
-                      onPress={() => handleScheduleReminder(selectedReminderLink, "custom", customReminderDate)}
+                      onPress={() =>
+                        handleScheduleReminder(
+                          selectedReminderLink,
+                          "custom",
+                          customReminderDate,
+                        )
+                      }
                       style={styles.customReminderButton}
                       buttonColor="#6200ee"
                     >
@@ -1703,47 +2184,73 @@ export default function Index() {
                   </View>
                 )}
 
-                <Text variant="labelLarge" style={{ fontWeight: "bold", marginTop: 8, marginBottom: 8, color: "#1a1a2e" }}>
+                <Text
+                  variant="labelLarge"
+                  style={{
+                    fontWeight: "bold",
+                    marginTop: 8,
+                    marginBottom: 8,
+                    color: "#1a1a2e",
+                  }}
+                >
                   ⚡ Veya Hızlı Seçenekler:
                 </Text>
-                
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={{ gap: 8, paddingVertical: 4, marginBottom: 16 }}
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{
+                    gap: 8,
+                    paddingVertical: 4,
+                    marginBottom: 16,
+                  }}
                 >
-                  <Chip 
-                    icon="clock-outline" 
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "1hour")}
+                  <Chip
+                    icon="clock-outline"
+                    onPress={() =>
+                      handleScheduleReminder(selectedReminderLink, "1hour")
+                    }
                     style={{ backgroundColor: "#f0f0f5" }}
                   >
                     1 Saat
                   </Chip>
-                  <Chip 
-                    icon="weather-night" 
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "evening")}
+                  <Chip
+                    icon="weather-night"
+                    onPress={() =>
+                      handleScheduleReminder(selectedReminderLink, "evening")
+                    }
                     style={{ backgroundColor: "#f0f0f5" }}
                   >
                     Akşam (20:00)
                   </Chip>
-                  <Chip 
-                    icon="weather-sunset-up" 
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "tomorrow")}
+                  <Chip
+                    icon="weather-sunset-up"
+                    onPress={() =>
+                      handleScheduleReminder(selectedReminderLink, "tomorrow")
+                    }
                     style={{ backgroundColor: "#f0f0f5" }}
                   >
                     Yarın (09:00)
                   </Chip>
-                  <Chip 
-                    icon="calendar-week" 
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "nextweek")}
+                  <Chip
+                    icon="calendar-week"
+                    onPress={() =>
+                      handleScheduleReminder(selectedReminderLink, "nextweek")
+                    }
                     style={{ backgroundColor: "#f0f0f5" }}
                   >
                     Haftaya
                   </Chip>
-                  <Chip 
-                    icon="timer-sand" 
-                    onPress={() => handleScheduleReminder(selectedReminderLink, "instant")}
-                    style={{ backgroundColor: "#fff9db", borderColor: "#ffe066", borderWidth: 1 }}
+                  <Chip
+                    icon="timer-sand"
+                    onPress={() =>
+                      handleScheduleReminder(selectedReminderLink, "instant")
+                    }
+                    style={{
+                      backgroundColor: "#fff9db",
+                      borderColor: "#ffe066",
+                      borderWidth: 1,
+                    }}
                     textStyle={{ color: "#856404", fontWeight: "bold" }}
                   >
                     Test (10s)
@@ -1751,26 +2258,47 @@ export default function Index() {
                 </ScrollView>
 
                 {/* Cancel existing reminder if scheduled */}
-                {reminders.some((r) => r.linkId === selectedReminderLink._id) && (
+                {reminders.some(
+                  (r) => r.linkId === selectedReminderLink._id,
+                ) && (
                   <Button
                     mode="contained"
                     buttonColor="#d32f2f"
                     icon="bell-off"
-                    onPress={() => handleCancelReminder(selectedReminderLink._id)}
+                    onPress={() =>
+                      handleCancelReminder(selectedReminderLink._id)
+                    }
                     style={{ marginBottom: 16, borderRadius: 12 }}
                   >
                     Mevcut Hatırlatıcıyı İptal Et
                   </Button>
                 )}
 
-                <View style={{ borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 16, marginTop: 8 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View
+                  style={{
+                    borderTopWidth: 0.5,
+                    borderTopColor: "#eee",
+                    paddingTop: 16,
+                    marginTop: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text variant="labelLarge" style={{ fontWeight: "bold", color: "#1a1a2e" }}>
+                      <Text
+                        variant="labelLarge"
+                        style={{ fontWeight: "bold", color: "#1a1a2e" }}
+                      >
                         Haftalık Akıllı Hatırlatıcı
                       </Text>
                       <Text variant="bodySmall" style={{ color: "#666" }}>
-                        Pazartesi günleri kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek için hatırlatıcı gönderir.
+                        Pazartesi günleri kaydettiğin bağlantıları incelemek ve
+                        okuma listeni düzenlemek için hatırlatıcı gönderir.
                       </Text>
                     </View>
                     <Switch
@@ -1784,10 +2312,14 @@ export default function Index() {
             )}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setReminderDialogVisible(false)} textColor="#666">Vazgeç</Button>
+            <Button
+              onPress={() => setReminderDialogVisible(false)}
+              textColor="#666"
+            >
+              Vazgeç
+            </Button>
           </Dialog.Actions>
         </Dialog>
-
       </Portal>
 
       {loading && links.length === 0 ? (
@@ -1840,24 +2372,51 @@ export default function Index() {
         <View style={styles.clipboardCardContainer}>
           <View style={styles.clipboardCard}>
             <View style={styles.clipboardHeader}>
-              <IconButton icon="content-copy" size={24} iconColor={theme.colors.primary} style={{ margin: 0 }} />
-              <Text variant="titleMedium" style={styles.clipboardTitle}>Panoda Link Algılandı</Text>
+              <IconButton
+                icon="content-copy"
+                size={24}
+                iconColor={theme.colors.primary}
+                style={{ margin: 0 }}
+              />
+              <Text variant="titleMedium" style={styles.clipboardTitle}>
+                Panoda Link Algılandı
+              </Text>
             </View>
-            <Text variant="bodyMedium" numberOfLines={1} style={styles.clipboardUrlText}>
+            <Text
+              variant="bodyMedium"
+              numberOfLines={1}
+              style={styles.clipboardUrlText}
+            >
               {clipboardUrl}
             </Text>
 
             {folders.length > 0 && (
               <View style={{ marginBottom: 12 }}>
-                <Text variant="labelSmall" style={{ marginBottom: 6, fontWeight: "bold", color: "#666" }}>
+                <Text
+                  variant="labelSmall"
+                  style={{ marginBottom: 6, fontWeight: "bold", color: "#666" }}
+                >
                   Klasör Seçin (İsteğe Bağlı):
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <Chip
                     selected={clipboardFolderId === null}
                     onPress={() => setClipboardFolderId(null)}
-                    style={{ marginRight: 6, height: 32, backgroundColor: clipboardFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
-                    textStyle={{ fontSize: 11, color: clipboardFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
+                    style={{
+                      marginRight: 6,
+                      height: 32,
+                      backgroundColor:
+                        clipboardFolderId === null
+                          ? theme.colors.primaryContainer
+                          : "#f5f5f5",
+                    }}
+                    textStyle={{
+                      fontSize: 11,
+                      color:
+                        clipboardFolderId === null
+                          ? theme.colors.onPrimaryContainer
+                          : "#666",
+                    }}
                     showSelectedOverlay
                     compact
                   >
@@ -1871,14 +2430,16 @@ export default function Index() {
                       style={{
                         marginRight: 6,
                         height: 32,
-                        backgroundColor: clipboardFolderId === f._id ? f.color : "#f5f5f5",
+                        backgroundColor:
+                          clipboardFolderId === f._id ? f.color : "#f5f5f5",
                         borderColor: f.color,
                         borderWidth: clipboardFolderId === f._id ? 0 : 1,
                       }}
                       textStyle={{
                         color: clipboardFolderId === f._id ? "#fff" : "#333",
-                        fontWeight: clipboardFolderId === f._id ? "bold" : "normal",
-                        fontSize: 11
+                        fontWeight:
+                          clipboardFolderId === f._id ? "bold" : "normal",
+                        fontSize: 11,
                       }}
                       showSelectedOverlay
                       compact
@@ -1892,10 +2453,20 @@ export default function Index() {
             )}
 
             <View style={styles.clipboardActions}>
-              <Button mode="text" onPress={handleDismissClipboard} disabled={savingClipboard}>
+              <Button
+                mode="text"
+                onPress={handleDismissClipboard}
+                disabled={savingClipboard}
+              >
                 İptal
               </Button>
-              <Button mode="contained" onPress={handleSaveClipboard} loading={savingClipboard} disabled={savingClipboard} style={{ marginLeft: 8 }}>
+              <Button
+                mode="contained"
+                onPress={handleSaveClipboard}
+                loading={savingClipboard}
+                disabled={savingClipboard}
+                style={{ marginLeft: 8 }}
+              >
                 Kaydet
               </Button>
             </View>
