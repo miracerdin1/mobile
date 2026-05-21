@@ -46,7 +46,7 @@ export default function EditLink() {
       const response = await axios.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
-      console.error("Fetch folders error in EditLink:", err);
+      console.warn("Fetch folders error in EditLink:", err);
     }
   };
 

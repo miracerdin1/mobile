@@ -38,7 +38,7 @@ export default function AddLink() {
       const response = await axios.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
-      console.error("Fetch folders error in AddLink:", err);
+      console.warn("Fetch folders error in AddLink:", err);
     }
   };
 

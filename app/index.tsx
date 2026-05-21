@@ -148,6 +148,7 @@ export default function Index() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [webCustomDateTime, setWebCustomDateTime] = useState("");
+  const [fetchError, setFetchError] = useState<boolean>(false);
 
   // 1. Initial Authentication Check
   const checkAuth = async () => {
@@ -364,8 +365,10 @@ export default function Index() {
     try {
       const response = await axios.get(`${Config.API_URL}/api/links`);
       setLinks(response.data);
+      setFetchError(false);
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.warn("Fetch error:", err);
+      setFetchError(true);
     }
   };
 
@@ -373,8 +376,10 @@ export default function Index() {
     try {
       const response = await axios.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
+      setFetchError(false);
     } catch (err) {
-      console.error("Fetch folders error:", err);
+      console.warn("Fetch folders error:", err);
+      setFetchError(true);
     }
   };
 
@@ -387,8 +392,10 @@ export default function Index() {
         setProfileAvatarUrl(response.data.avatarUrl || "");
         setProfileTheme(response.data.theme || "purple-dark");
       }
+      setFetchError(false);
     } catch (err) {
-      console.error("Fetch profile error:", err);
+      console.warn("Fetch profile error:", err);
+      setFetchError(true);
     }
   };
 
@@ -1077,6 +1084,28 @@ export default function Index() {
           </Chip>
         </ScrollView>
       </View>
+
+      {/* Connection error banner */}
+      {fetchError && (
+        <View style={styles.connectionErrorBanner}>
+          <IconButton icon="wifi-strength-1-alert" iconColor="#d32f2f" size={24} style={{ margin: 0 }} />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text variant="titleSmall" style={{ fontWeight: "bold", color: "#d32f2f" }}>
+              Bağlantı Hatası
+            </Text>
+            <Text variant="bodySmall" style={{ color: "#c62828", lineHeight: 16 }}>
+              Sunucu uykuda olabilir (Render ücretsiz plan uyanması ~30-50 sn sürebilir) veya internet bağlantınız kesilmiştir. Yenilemek için lütfen ekranı aşağı kaydırın.
+            </Text>
+          </View>
+          <IconButton
+            icon="refresh"
+            iconColor="#d32f2f"
+            size={22}
+            onPress={onRefresh}
+            style={{ margin: 0 }}
+          />
+        </View>
+      )}
 
       {/* Collaboration Banner inside custom selected folder */}
       {currentFolder && (
@@ -1963,5 +1992,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
     marginBottom: 16,
+  },
+  connectionErrorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffebee",
+    borderColor: "#ffcdd2",
+    borderWidth: 1,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 10,
   },
 });
