@@ -32,8 +32,9 @@ import {
   TextInput,
 } from "react-native-paper";
 import LinkCard from "../components/LinkCard";
-import Config from "../constants/Config";
 import AuthScreen from "../components/AuthScreen";
+import { DEFAULT_CATEGORIES, FOLDER_COLORS, FOLDER_ICONS } from "../constants";
+import Config from "../constants/Config";
 import {
   connectSocket,
   disconnectSocket,
@@ -43,7 +44,7 @@ import {
 
 // Import modular components
 import BioSettingsDialog from "../components/BioSettingsDialog";
-import FolderFormDialog, { FOLDER_COLORS, FOLDER_ICONS } from "../components/FolderFormDialog";
+import FolderFormDialog from "../components/FolderFormDialog";
 import CollaborationDialog from "../components/CollaborationDialog";
 import ReminderDialog from "../components/ReminderDialog";
 import ClipboardPrompt from "../components/ClipboardPrompt";
@@ -69,14 +70,7 @@ if (Platform.OS !== "web") {
   });
 }
 
-const DEFAULT_CATEGORIES = [
-  "All",
-  "Video",
-  "Article",
-  "Product",
-  "Social",
-  "Other",
-];
+
 
 export default function Index() {
   const router = useRouter();

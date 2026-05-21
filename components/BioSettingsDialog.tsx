@@ -8,34 +8,8 @@ import {
   Button,
 } from "react-native-paper";
 
+import { THEME_PRESETS } from "../constants";
 import { BioSettingsDialogProps } from "../types";
-
-const THEME_PRESETS = [
-  {
-    id: "purple-dark",
-    name: "Mor Karanlık",
-    bg: "#1f1c2c",
-    text: "#fff",
-  },
-  {
-    id: "sunset",
-    name: "Günbatımı",
-    bg: "#ff5e62",
-    text: "#fff",
-  },
-  {
-    id: "nordic-light",
-    name: "Kuzey Işığı",
-    bg: "#eef2f3",
-    text: "#2c3e50",
-  },
-  {
-    id: "glassmorphic",
-    name: "Buzlu Cam",
-    bg: "#1a1a2e",
-    text: "#fff",
-  },
-];
 
 export default function BioSettingsDialog({
   visible,

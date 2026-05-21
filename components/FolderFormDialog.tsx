@@ -8,31 +8,7 @@ import {
   IconButton,
   Button,
 } from "react-native-paper";
-
-export const FOLDER_COLORS = [
-  "#6200ee", // Purple
-  "#ff5722", // Deep Orange
-  "#2e7d32", // Emerald Green
-  "#008080", // Teal
-  "#d32f2f", // Sunset Red
-  "#1976d2", // Ocean Blue
-  "#fbc02d", // Gold
-  "#e91e63", // Rose/Pink
-];
-
-export const FOLDER_ICONS = [
-  "folder",
-  "star",
-  "heart",
-  "briefcase",
-  "book-open-variant",
-  "cart",
-  "gamepad-variant",
-  "music",
-  "lightbulb",
-  "code-tags",
-];
-
+import { FOLDER_COLORS, FOLDER_ICONS } from "../constants";
 import { FolderFormDialogProps } from "../types";
 
 export default function FolderFormDialog({
