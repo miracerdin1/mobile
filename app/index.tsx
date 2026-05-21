@@ -3,6 +3,7 @@ import axios from "axios";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
 import * as Notifications from "expo-notifications";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -143,6 +144,10 @@ export default function Index() {
   const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
   const [selectedReminderLink, setSelectedReminderLink] = useState<any | null>(null);
   const [smartRemindersEnabled, setSmartRemindersEnabled] = useState(false);
+  const [customReminderDate, setCustomReminderDate] = useState<Date>(new Date(Date.now() + 10 * 60 * 1000));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [webCustomDateTime, setWebCustomDateTime] = useState("");
 
   // 1. Initial Authentication Check
   const checkAuth = async () => {
@@ -654,7 +659,11 @@ export default function Index() {
   };
 
   // Reminder Actions (Daha Sonra Oku Hatırlatıcıları)
-  const handleScheduleReminder = async (link: any, delayType: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant") => {
+  const handleScheduleReminder = async (
+    link: any,
+    delayType: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant" | "custom",
+    customDate?: Date
+  ) => {
     try {
       // 1. Request permissions first just in case (Native only)
       if (Platform.OS !== "web") {
@@ -699,6 +708,14 @@ export default function Index() {
         target.setHours(9, 0, 0, 0);
         delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
         delayText = "gelecek Pazartesi sabah saat 09:00'da";
+      } else if (delayType === "custom" && customDate) {
+        const diffMs = customDate.getTime() - now.getTime();
+        if (diffMs <= 0) {
+          Alert.alert("Geçersiz Zaman", "Lütfen gelecekteki bir tarih ve saat seçin.");
+          return;
+        }
+        delaySeconds = Math.max(1, Math.round(diffMs / 1000));
+        delayText = `${customDate.toLocaleDateString("tr-TR")} saat ${customDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })} için`;
       }
 
       // 3. Cancel any existing reminder for this specific link first
@@ -747,6 +764,24 @@ export default function Index() {
     } catch (error) {
       console.error("Failed to schedule reminder:", error);
       Alert.alert("Hata", "Hatırlatıcı kurulurken bir hata oluştu.");
+    }
+  };
+
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const newDate = new Date(customReminderDate);
+      newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      setCustomReminderDate(newDate);
+    }
+  };
+
+  const onChangeTime = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const newDate = new Date(customReminderDate);
+      newDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+      setCustomReminderDate(newDate);
     }
   };
 
@@ -1505,10 +1540,10 @@ export default function Index() {
                 </Text>
 
                 <Text variant="labelLarge" style={{ fontWeight: "bold", marginBottom: 10, color: "#333" }}>
-                  Hatırlatma Zamanı Seçin:
+                  Hızlı Hatırlatma Zamanı Seçin:
                 </Text>
                 
-                <View style={{ gap: 8, marginBottom: 20 }}>
+                <View style={{ gap: 8, marginBottom: 16 }}>
                   <Button
                     mode="outlined"
                     icon="clock-outline"
@@ -1560,6 +1595,67 @@ export default function Index() {
                   </Button>
                 </View>
 
+                <Text variant="labelLarge" style={{ fontWeight: "bold", marginTop: 8, marginBottom: 8, color: "#333" }}>
+                  📅 Veya Özel Tarih & Saat Seç:
+                </Text>
+                
+                {Platform.OS === "web" ? (
+                  <View style={{ marginBottom: 16 }}>
+                    <TextInput
+                      label="Hatırlatma Tarihi ve Saati"
+                      mode="outlined"
+                      value={webCustomDateTime}
+                      onChangeText={setWebCustomDateTime}
+                      right={<TextInput.Icon icon="calendar-clock" />}
+                      style={{ marginBottom: 8, backgroundColor: "white" }}
+                      {...({ type: "datetime-local" } as any)}
+                    />
+                    <Button
+                      mode="contained"
+                      icon="bell-plus"
+                      disabled={!webCustomDateTime}
+                      onPress={() => {
+                        if (webCustomDateTime) {
+                          const chosenDate = new Date(webCustomDateTime);
+                          handleScheduleReminder(selectedReminderLink, "custom", chosenDate);
+                        }
+                      }}
+                      style={{ marginTop: 4 }}
+                    >
+                      Özel Hatırlatıcıyı Kur
+                    </Button>
+                  </View>
+                ) : (
+                  <View style={{ marginBottom: 16 }}>
+                    <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+                      <Button
+                        mode="outlined"
+                        icon="calendar"
+                        style={{ flex: 1 }}
+                        onPress={() => setShowDatePicker(true)}
+                      >
+                        {customReminderDate.toLocaleDateString("tr-TR")}
+                      </Button>
+                      <Button
+                        mode="outlined"
+                        icon="clock"
+                        style={{ flex: 1 }}
+                        onPress={() => setShowTimePicker(true)}
+                      >
+                        {customReminderDate.toLocaleTimeString("tr-TR", { hour: '2-digit', minute: '2-digit' })}
+                      </Button>
+                    </View>
+                    <Button
+                      mode="contained"
+                      icon="bell-plus"
+                      onPress={() => handleScheduleReminder(selectedReminderLink, "custom", customReminderDate)}
+                      style={{ marginTop: 4 }}
+                    >
+                      Özel Hatırlatıcıyı Kur
+                    </Button>
+                  </View>
+                )}
+
                 {/* Cancel existing reminder if scheduled */}
                 {reminders.some((r) => r.linkId === selectedReminderLink._id) && (
                   <Button
@@ -1567,7 +1663,7 @@ export default function Index() {
                     buttonColor="#d32f2f"
                     icon="bell-off"
                     onPress={() => handleCancelReminder(selectedReminderLink._id)}
-                    style={{ marginBottom: 20 }}
+                    style={{ marginBottom: 20, marginTop: 8 }}
                   >
                     Mevcut Hatırlatıcıyı İptal Et
                   </Button>
@@ -1597,6 +1693,24 @@ export default function Index() {
             <Button onPress={() => setReminderDialogVisible(false)}>Vazgeç</Button>
           </Dialog.Actions>
         </Dialog>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={customReminderDate}
+            mode="date"
+            display="default"
+            onChange={onChangeDate}
+            minimumDate={new Date()}
+          />
+        )}
+        {showTimePicker && (
+          <DateTimePicker
+            value={customReminderDate}
+            mode="time"
+            display="default"
+            onChange={onChangeTime}
+          />
+        )}
       </Portal>
 
       {loading && links.length === 0 ? (
