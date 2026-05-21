@@ -15,6 +15,8 @@ interface LinkCardProps {
   folderIcon?: string;
   onDelete?: () => void;
   onEdit?: () => void;
+  onRemind?: () => void;
+  hasReminder?: boolean;
 }
 
 export default function LinkCard({
@@ -28,6 +30,8 @@ export default function LinkCard({
   folderIcon,
   onDelete,
   onEdit,
+  onRemind,
+  hasReminder,
 }: LinkCardProps) {
   const theme = useTheme();
 
@@ -107,6 +111,15 @@ export default function LinkCard({
                 </View>
               )}
               <View style={{ flex: 1 }} />
+              {onRemind && (
+                <IconButton
+                  icon={hasReminder ? "bell" : "bell-outline"}
+                  size={20}
+                  onPress={onRemind}
+                  iconColor={hasReminder ? "#ffb300" : undefined}
+                  style={{ margin: 0, marginRight: -8 }}
+                />
+              )}
               {onEdit && (
                 <IconButton
                   icon="pencil-outline"

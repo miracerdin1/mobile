@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -15,6 +16,7 @@ import {
   View,
   Share,
   TouchableOpacity,
+  Linking,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -39,6 +41,16 @@ import {
   joinFolderRoom,
   leaveFolderRoom,
 } from "../services/socket";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const DEFAULT_CATEGORIES = [
   "All",
@@ -124,6 +136,12 @@ export default function Index() {
   const [inviteUsernameOrEmail, setInviteUsernameOrEmail] = useState("");
   const [inviting, setInviting] = useState(false);
 
+  // Reminder / Notification State
+  const [reminders, setReminders] = useState<{ linkId: string; notificationId: string }[]>([]);
+  const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
+  const [selectedReminderLink, setSelectedReminderLink] = useState<any | null>(null);
+  const [smartRemindersEnabled, setSmartRemindersEnabled] = useState(false);
+
   // 1. Initial Authentication Check
   const checkAuth = async () => {
     try {
@@ -144,6 +162,48 @@ export default function Index() {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Notifications Permissions, Response Listener & AsyncStorage Loading
+  useEffect(() => {
+    const setupNotifications = async () => {
+      try {
+        // Request Permissions
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== "granted") {
+          await Notifications.requestPermissionsAsync();
+        }
+
+        // Load active reminders from storage
+        const storedReminders = await AsyncStorage.getItem("activeReminders");
+        if (storedReminders) {
+          setReminders(JSON.parse(storedReminders));
+        }
+
+        // Load smart reminder setting
+        const storedSmart = await AsyncStorage.getItem("smartRemindersEnabled");
+        if (storedSmart) {
+          setSmartRemindersEnabled(JSON.parse(storedSmart));
+        }
+      } catch (e) {
+        console.error("Error setting up notifications:", e);
+      }
+    };
+
+    setupNotifications();
+
+    // Listener for when a user clicks on a notification
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const url = response.notification.request.content.data?.url;
+      if (typeof url === "string") {
+        console.log("[Notification Clicked] Opening URL:", url);
+        Linking.openURL(url).catch((err) => console.error("Failed to open URL from notification:", err));
+      }
+    });
+
+    return () => {
+      responseSubscription.remove();
+    };
   }, []);
 
   const handleAuthSuccess = (newToken: string, newUser: any) => {
@@ -574,6 +634,142 @@ export default function Index() {
         }
       }
     ]);
+  };
+
+  // Reminder Actions (Daha Sonra Oku Hatırlatıcıları)
+  const handleScheduleReminder = async (link: any, delayType: "1hour" | "evening" | "tomorrow" | "nextweek" | "instant") => {
+    try {
+      // 1. Request permissions first just in case
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        const req = await Notifications.requestPermissionsAsync();
+        if (req.status !== "granted") {
+          Alert.alert("İzin Gerekli", "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.");
+          return;
+        }
+      }
+
+      // 2. Calculate delay in seconds
+      let delaySeconds = 0;
+      let delayText = "";
+
+      const now = new Date();
+      if (delayType === "instant") {
+        delaySeconds = 10; // 10 seconds (for instant testing!)
+        delayText = "10 saniye sonra";
+      } else if (delayType === "1hour") {
+        delaySeconds = 60 * 60; // 1 hour
+        delayText = "1 saat sonra";
+      } else if (delayType === "evening") {
+        const target = new Date();
+        target.setHours(20, 0, 0, 0);
+        if (target.getTime() <= now.getTime()) {
+          target.setDate(target.getDate() + 1);
+        }
+        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delayText = "bu akşam saat 20:00'de";
+      } else if (delayType === "tomorrow") {
+        const target = new Date();
+        target.setDate(target.getDate() + 1);
+        target.setHours(9, 0, 0, 0);
+        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delayText = "yarın sabah saat 09:00'da";
+      } else if (delayType === "nextweek") {
+        const target = new Date();
+        target.setDate(target.getDate() + ((1 + 7 - target.getDay()) % 7 || 7));
+        target.setHours(9, 0, 0, 0);
+        delaySeconds = Math.max(1, Math.round((target.getTime() - now.getTime()) / 1000));
+        delayText = "gelecek Pazartesi sabah saat 09:00'da";
+      }
+
+      // 3. Cancel any existing reminder for this specific link first
+      const existing = reminders.find((r) => r.linkId === link._id);
+      if (existing) {
+        await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+      }
+
+      // 4. Schedule local notification
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Daha Sonra Oku 🔔",
+          body: `Kaydettiğin "${link.title || 'bağlantıya'}" göz atmak ister misin?`,
+          data: { url: link.url },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: delaySeconds,
+        },
+      });
+
+      // 5. Update state and AsyncStorage
+      const updatedReminders = reminders.filter((r) => r.linkId !== link._id);
+      const newReminders = [...updatedReminders, { linkId: link._id, notificationId }];
+      
+      setReminders(newReminders);
+      await AsyncStorage.setItem("activeReminders", JSON.stringify(newReminders));
+      setReminderDialogVisible(false);
+
+      Alert.alert(
+        "Hatırlatıcı Kuruldu 🔔",
+        `"${link.title || 'Bağlantı'}" için hatırlatıcı ${delayText} çalışacak şekilde başarıyla ayarlandı.`
+      );
+    } catch (error) {
+      console.error("Failed to schedule reminder:", error);
+      Alert.alert("Hata", "Hatırlatıcı kurulurken bir hata oluştu.");
+    }
+  };
+
+  const handleCancelReminder = async (linkId: string) => {
+    try {
+      const existing = reminders.find((r) => r.linkId === linkId);
+      if (existing) {
+        await Notifications.cancelScheduledNotificationAsync(existing.notificationId);
+        
+        const updated = reminders.filter((r) => r.linkId !== linkId);
+        setReminders(updated);
+        await AsyncStorage.setItem("activeReminders", JSON.stringify(updated));
+      }
+      
+      setReminderDialogVisible(false);
+      Alert.alert("İptal Edildi 🔕", "Hatırlatıcı başarıyla iptal edildi.");
+    } catch (error) {
+      console.error("Failed to cancel reminder:", error);
+      Alert.alert("Hata", "Hatırlatıcı iptal edilirken bir hata oluştu.");
+    }
+  };
+
+  const handleToggleSmartReminders = async (enabled: boolean) => {
+    try {
+      setSmartRemindersEnabled(enabled);
+      await AsyncStorage.setItem("smartRemindersEnabled", JSON.stringify(enabled));
+
+      const smartNotificationId = await AsyncStorage.getItem("smartNotificationId");
+      if (smartNotificationId) {
+        await Notifications.cancelScheduledNotificationAsync(smartNotificationId);
+        await AsyncStorage.removeItem("smartNotificationId");
+      }
+
+      if (enabled) {
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Haftalık Akıllı Hatırlatıcı 🔔",
+            body: "Pazartesi günü kaydettiğin bağlantıları incelemek ve okuma listeni düzenlemek ister misin?",
+            data: { url: Config.API_URL + "/bio" },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 7 * 24 * 60 * 60,
+            repeats: true,
+          },
+        });
+        await AsyncStorage.setItem("smartNotificationId", notificationId);
+        Alert.alert("Akıllı Hatırlatıcı Aktif 🔔", "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!");
+      } else {
+        Alert.alert("Devre Dışı Bırakıldı 🔕", "Akıllı okuma hatırlatıcıları kapatıldı.");
+      }
+    } catch (error) {
+      console.error("Smart reminder toggle failed:", error);
+    }
   };
 
   // Link Actions
@@ -1248,6 +1444,116 @@ export default function Index() {
             <Button onPress={() => setCollaborationModalVisible(false)}>Done</Button>
           </Dialog.Actions>
         </Dialog>
+
+        {/* "Daha Sonra Oku" Hatırlatıcı Ayarları Dialog */}
+        <Dialog
+          visible={reminderDialogVisible}
+          onDismiss={() => setReminderDialogVisible(false)}
+        >
+          <Dialog.Title>🔔 Hatırlatıcı Ayarla</Dialog.Title>
+          <Dialog.Content>
+            {selectedReminderLink && (
+              <ScrollView style={{ maxHeight: 350 }}>
+                <Text variant="titleSmall" style={{ fontWeight: "bold", marginBottom: 4, color: "#333" }}>
+                  Seçilen Bağlantı:
+                </Text>
+                <Text variant="bodyMedium" style={{ color: "#666", marginBottom: 16 }} numberOfLines={2}>
+                  {selectedReminderLink.title || selectedReminderLink.url}
+                </Text>
+
+                <Text variant="labelLarge" style={{ fontWeight: "bold", marginBottom: 10, color: "#333" }}>
+                  Hatırlatma Zamanı Seçin:
+                </Text>
+                
+                <View style={{ gap: 8, marginBottom: 20 }}>
+                  <Button
+                    mode="outlined"
+                    icon="clock-outline"
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "1hour")}
+                    style={{ justifyContent: "flex-start" }}
+                    contentStyle={{ justifyContent: "flex-start" }}
+                  >
+                    1 Saat Sonra
+                  </Button>
+                  <Button
+                    mode="outlined"
+                    icon="weather-night"
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "evening")}
+                    style={{ justifyContent: "flex-start" }}
+                    contentStyle={{ justifyContent: "flex-start" }}
+                  >
+                    Bu Akşam (20:00)
+                  </Button>
+                  <Button
+                    mode="outlined"
+                    icon="weather-sunset-up"
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "tomorrow")}
+                    style={{ justifyContent: "flex-start" }}
+                    contentStyle={{ justifyContent: "flex-start" }}
+                  >
+                    Yarın Sabah (09:00)
+                  </Button>
+                  <Button
+                    mode="outlined"
+                    icon="calendar-week"
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "nextweek")}
+                    style={{ justifyContent: "flex-start" }}
+                    contentStyle={{ justifyContent: "flex-start" }}
+                  >
+                    Gelecek Hafta (Pazartesi 09:00)
+                  </Button>
+                  
+                  {/* Test Button for instant testing */}
+                  <Button
+                    mode="contained"
+                    buttonColor="#ffb300"
+                    textColor="#fff"
+                    icon="timer-sand"
+                    onPress={() => handleScheduleReminder(selectedReminderLink, "instant")}
+                    style={{ justifyContent: "flex-start", marginTop: 4 }}
+                    contentStyle={{ justifyContent: "flex-start" }}
+                  >
+                    10 Saniye Sonra (Hızlı Test ⏱️)
+                  </Button>
+                </View>
+
+                {/* Cancel existing reminder if scheduled */}
+                {reminders.some((r) => r.linkId === selectedReminderLink._id) && (
+                  <Button
+                    mode="contained"
+                    buttonColor="#d32f2f"
+                    icon="bell-off"
+                    onPress={() => handleCancelReminder(selectedReminderLink._id)}
+                    style={{ marginBottom: 20 }}
+                  >
+                    Mevcut Hatırlatıcıyı İptal Et
+                  </Button>
+                )}
+
+                <View style={{ borderTopWidth: 0.5, borderTopColor: "#eee", paddingTop: 16, marginTop: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text variant="labelLarge" style={{ fontWeight: "bold", color: "#333" }}>
+                        Haftalık Akıllı Hatırlatıcı
+                      </Text>
+                      <Text variant="bodySmall" style={{ color: "#666" }}>
+                        Her hafta saved links listenden unuttuğun linkleri hatırlatır.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={smartRemindersEnabled}
+                      onValueChange={handleToggleSmartReminders}
+                      color="#6200ee"
+                    />
+                  </View>
+                </View>
+              </ScrollView>
+            )}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setReminderDialogVisible(false)}>Vazgeç</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
 
       {loading && links.length === 0 ? (
@@ -1277,6 +1583,11 @@ export default function Index() {
                 folderIcon={folder?.icon}
                 onDelete={() => handleDelete(item._id)}
                 onEdit={() => router.push(`/edit/${item._id}`)}
+                onRemind={() => {
+                  setSelectedReminderLink(item);
+                  setReminderDialogVisible(true);
+                }}
+                hasReminder={reminders.some((r) => r.linkId === item._id)}
               />
             );
           }}
