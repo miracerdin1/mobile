@@ -1,9 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  AppState,
+  AppStateStatus,
   FlatList,
   Platform,
   RefreshControl,
@@ -47,6 +50,45 @@ export default function Index() {
   // Category Management State
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [manageCategoriesVisible, setManageCategoriesVisible] = useState(false);
+
+  // Clipboard State
+  const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
+  const [showClipboardPrompt, setShowClipboardPrompt] = useState(false);
+  const [savingClipboard, setSavingClipboard] = useState(false);
+
+  const checkClipboard = async () => {
+    try {
+      const hasString = await Clipboard.hasStringAsync();
+      if (!hasString) return;
+
+      const content = await Clipboard.getStringAsync();
+      const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?(\?.*)?$/;
+      
+      if (urlPattern.test(content)) {
+        const lastSaved = await AsyncStorage.getItem("lastSavedClipboardUrl");
+        if (lastSaved !== content) {
+          setClipboardUrl(content);
+          setShowClipboardPrompt(true);
+        }
+      }
+    } catch (error) {
+      console.error("Clipboard check error:", error);
+    }
+  };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        checkClipboard();
+      }
+    });
+
+    checkClipboard(); // Initial check
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     loadCategories();
@@ -129,6 +171,30 @@ export default function Index() {
     setRefreshing(true);
     await fetchLinks();
     setRefreshing(false);
+  };
+
+  const handleSaveClipboard = async () => {
+    if (!clipboardUrl) return;
+    setSavingClipboard(true);
+    try {
+      await axios.post(`${Config.API_URL}/api/links`, { url: clipboardUrl });
+      await AsyncStorage.setItem("lastSavedClipboardUrl", clipboardUrl);
+      setShowClipboardPrompt(false);
+      setClipboardUrl(null);
+      fetchLinks(); // Refresh the list
+    } catch (error) {
+      Alert.alert("Error", "Failed to save link from clipboard");
+    } finally {
+      setSavingClipboard(false);
+    }
+  };
+
+  const handleDismissClipboard = async () => {
+    if (clipboardUrl) {
+      await AsyncStorage.setItem("lastSavedClipboardUrl", clipboardUrl);
+    }
+    setShowClipboardPrompt(false);
+    setClipboardUrl(null);
   };
 
   useFocusEffect(
@@ -272,6 +338,29 @@ export default function Index() {
       )}
 
       <FAB icon="plus" style={styles.fab} onPress={() => router.push("/add")} />
+
+      {/* Clipboard Prompt UI */}
+      {showClipboardPrompt && clipboardUrl && (
+        <View style={styles.clipboardCardContainer}>
+          <View style={styles.clipboardCard}>
+            <View style={styles.clipboardHeader}>
+              <IconButton icon="content-copy" size={24} iconColor={theme.colors.primary} style={{ margin: 0 }} />
+              <Text variant="titleMedium" style={styles.clipboardTitle}>Panoda Link Algılandı</Text>
+            </View>
+            <Text variant="bodyMedium" numberOfLines={1} style={styles.clipboardUrlText}>
+              {clipboardUrl}
+            </Text>
+            <View style={styles.clipboardActions}>
+              <Button mode="text" onPress={handleDismissClipboard} disabled={savingClipboard}>
+                İptal
+              </Button>
+              <Button mode="contained" onPress={handleSaveClipboard} loading={savingClipboard} disabled={savingClipboard} style={{ marginLeft: 8 }}>
+                Kaydet
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -297,5 +386,40 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
+  },
+  clipboardCardContainer: {
+    position: "absolute",
+    bottom: 90,
+    left: 16,
+    right: 16,
+    alignItems: "center",
+  },
+  clipboardCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    borderRadius: 16,
+    padding: 16,
+    width: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  clipboardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  clipboardTitle: {
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  clipboardUrlText: {
+    color: "#666",
+    marginBottom: 16,
+  },
+  clipboardActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
 });
