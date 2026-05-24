@@ -397,6 +397,7 @@ export default function Index() {
   const checkClipboard = async () => {
     try {
       if (!token) return;
+      if (Platform.OS === "web") return; // Web tarayıcıları otomatik pano erişimini engeller
       const hasString = await Clipboard.hasStringAsync();
       if (!hasString) return;
 
