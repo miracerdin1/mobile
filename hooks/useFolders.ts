@@ -38,6 +38,10 @@ export function useFolders({
   const [inviting, setInviting] = useState(false);
   const [foldersError, setFoldersError] = useState(false);
 
+  // Paywall State
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState("");
+
   const onRefreshLinksRef = useRef(onRefreshLinks);
   useEffect(() => {
     onRefreshLinksRef.current = onRefreshLinks;
@@ -165,8 +169,13 @@ export function useFolders({
       setFolderIcon("folder");
       setFolderIsPublic(false);
       setEditingFolder(null);
-    } catch (error) {
-      Alert.alert("Hata", "Klasör kaydedilemedi");
+    } catch (error: any) {
+      if (error.response?.status === 402 || error.response?.data?.code === "QUOTA_EXCEEDED") {
+        setPaywallReason(error.response?.data?.message || "Limit aşımı! Lütfen Pro plana yükseltin.");
+        setPaywallVisible(true);
+      } else {
+        Alert.alert("Hata", "Klasör kaydedilemedi");
+      }
     }
   }, [folderName, editingFolder, folderColor, folderIcon, folderIsPublic]);
 
@@ -220,8 +229,13 @@ export function useFolders({
       setInviteUsernameOrEmail("");
       Alert.alert("Başarılı", "Ortak başarıyla eklendi!");
     } catch (error: any) {
-      const errMsg = error.response?.data?.error || "Kullanıcı eklenemedi";
-      Alert.alert("Hata", errMsg);
+      if (error.response?.status === 402 || error.response?.data?.code === "COLLABORATION_DISABLED") {
+        setPaywallReason(error.response?.data?.message || "Bu özellik Pro üyeler içindir.");
+        setPaywallVisible(true);
+      } else {
+        const errMsg = error.response?.data?.error || "Kullanıcı eklenemedi";
+        Alert.alert("Hata", errMsg);
+      }
     } finally {
       setInviting(false);
     }
@@ -320,5 +334,8 @@ export function useFolders({
     handleRemoveCollaborator,
     handleLeaveFolder,
     foldersError,
+    paywallVisible,
+    setPaywallVisible,
+    paywallReason,
   };
 }
