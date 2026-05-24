@@ -15,10 +15,12 @@ const theme = {
 };
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AuthProvider } from "../context/AuthContext";
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <PaperProvider theme={theme}>
         <StatusBar style="auto" />
         <Stack
@@ -41,8 +43,13 @@ export default function RootLayout() {
             name="edit/[id]"
             options={{ title: "Edit Link", presentation: "modal" }}
           />
+          <Stack.Screen
+            name="auth"
+            options={{ title: "Login", presentation: "modal", headerShown: false }}
+          />
         </Stack>
       </PaperProvider>
     </GestureHandlerRootView>
+    </AuthProvider>
   );
 }

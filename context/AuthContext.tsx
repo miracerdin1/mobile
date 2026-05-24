@@ -1,0 +1,94 @@
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import axios from 'axios';
+import { clearStoredAuth, getStoredAuth, saveStoredAuth } from '../services/authStorage';
+
+type AuthContextType = {
+  isAuthenticated: boolean;
+  user: any;
+  token: string | null;
+  loading: boolean;
+  login: (token: string, userData: any) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
+export const AuthContext = createContext<AuthContextType>({
+  isAuthenticated: false,
+  user: null,
+  token: null,
+  loading: true,
+  login: async () => {},
+  logout: async () => {},
+});
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAuthState();
+
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          console.log('[Axios Interceptor] 401/403 detected, logging out...');
+          logout();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
+  }, []);
+
+  const loadAuthState = async () => {
+    try {
+      setLoading(true);
+      const { token: storedToken, userData: storedUser } = await getStoredAuth();
+
+      if (storedToken && storedUser) {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Error loading auth state', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (newToken: string, userData: any) => {
+    try {
+      await saveStoredAuth(newToken, userData);
+      setToken(newToken);
+      setUser(userData);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Error saving auth state', error);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await clearStoredAuth();
+      setToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Error clearing auth state', error);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated, user, token, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);

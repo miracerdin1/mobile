@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Chip, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../../constants/Config";
+import { getStoredToken } from "../../services/authStorage";
 
 export default function EditLink() {
   const { id } = useLocalSearchParams();
@@ -22,11 +23,22 @@ export default function EditLink() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      Promise.all([fetchLinkDetails(), fetchFolders()]).finally(() => {
+    const init = async () => {
+      try {
+        const token = await getStoredToken();
+        if (token) {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        if (id) {
+          await Promise.all([fetchLinkDetails(), fetchFolders()]);
+        }
+      } catch (err) {
+        console.error("Initialization error in EditLink:", err);
+      } finally {
         setFetching(false);
-      });
-    }
+      }
+    };
+    init();
   }, [id]);
 
   const fetchFolders = async () => {
@@ -34,7 +46,7 @@ export default function EditLink() {
       const response = await axios.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
-      console.error("Fetch folders error in EditLink:", err);
+      console.warn("Fetch folders error in EditLink:", err);
     }
   };
 
