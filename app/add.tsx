@@ -5,6 +5,7 @@ import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../constants/Config";
 import { getStoredToken } from "../services/authStorage";
+import { PaywallModal } from "../components/PaywallModal";
 
 export default function AddLink() {
   const router = useRouter();
@@ -17,6 +18,10 @@ export default function AddLink() {
   // Folders State
   const [folders, setFolders] = useState<any[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  // Paywall State
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -72,7 +77,12 @@ export default function AddLink() {
       router.back();
     } catch (err: any) {
       console.error("Add Link Error:", err);
-      Alert.alert("Hata", `Link eklenemedi. ${err.message}`);
+      if (err.response?.status === 402 || err.response?.data?.code === "QUOTA_EXCEEDED") {
+        setPaywallReason(err.response?.data?.message || "Limit aşımı! Lütfen Pro plana yükseltin.");
+        setPaywallVisible(true);
+      } else {
+        Alert.alert("Hata", `Link eklenemedi. ${err.response?.data?.error || err.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -155,6 +165,12 @@ export default function AddLink() {
       >
         Linki Kaydet
       </Button>
+
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        reason={paywallReason}
+      />
     </View>
   );
 }
