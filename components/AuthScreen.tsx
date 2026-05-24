@@ -16,7 +16,7 @@ import {
   useTheme,
   Surface,
 } from "react-native-paper";
-import axios from "axios";
+import api from "../services/api";
 import Config from "../constants/Config";
 import { AuthScreenProps } from "../types";
 
@@ -76,7 +76,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
     try {
       if (isLogin) {
-        const response = await axios.post(`${Config.API_URL}/api/auth/login`, {
+        const response = await api.post(`${Config.API_URL}/api/auth/login`, {
           emailOrUsername: emailOrUsername.trim(),
           password: password.trim(),
         });
@@ -85,7 +85,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         
         onAuthSuccess(token, user);
       } else {
-        const response = await axios.post(`${Config.API_URL}/api/auth/register`, {
+        const response = await api.post(`${Config.API_URL}/api/auth/register`, {
           username: username.trim(),
           email: email.trim(),
           password: password.trim(),
