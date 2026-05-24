@@ -16,7 +16,6 @@ import {
   useTheme,
   Surface,
 } from "react-native-paper";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Config from "../constants/Config";
 import { AuthScreenProps } from "../types";
@@ -83,8 +82,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         });
 
         const { token, user } = response.data;
-        await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", JSON.stringify(user));
         
         onAuthSuccess(token, user);
       } else {
@@ -95,8 +92,6 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         });
 
         const { token, user } = response.data;
-        await AsyncStorage.setItem("userToken", token);
-        await AsyncStorage.setItem("userData", JSON.stringify(user));
 
         Alert.alert("Başarılı", `Hoş geldiniz @${user.username}! Kaydınız başarıyla oluşturuldu.`);
         onAuthSuccess(token, user);

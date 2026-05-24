@@ -1,10 +1,10 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../constants/Config";
+import { getStoredToken } from "../services/authStorage";
 
 export default function AddLink() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function AddLink() {
   useEffect(() => {
     const init = async () => {
       try {
-        const token = await AsyncStorage.getItem("userToken");
+        const token = await getStoredToken();
         if (token) {
           axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         }
