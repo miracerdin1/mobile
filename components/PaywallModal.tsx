@@ -10,6 +10,9 @@ type PaywallModalProps = {
   reason?: string; // e.g., "Link limitine ulaştınız!"
 };
 
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, reason }) => {
   const { updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -18,13 +21,21 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, re
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.post('/api/payments/subscribe');
-      if (response.data?.user) {
-        await updateUser(response.data.user);
+      const returnUrl = Linking.createURL('payment-success');
+      
+      const response = await apiClient.post('/api/payments/subscribe', {
+        plan: selectedPlan,
+        returnUrl
+      });
+      
+      if (response.data?.url) {
+        // Open Stripe Checkout
+        await WebBrowser.openBrowserAsync(response.data.url);
+        
+        onClose();
         Alert.alert(
-          "Tebrikler! 🎉",
-          "LinkFlow Pro üyeliğiniz başarıyla aktif edildi. Sınırsız özelliklerin keyfini çıkarın!",
-          [{ text: "Harika!", onPress: onClose }]
+          "Ödeme İşlemi", 
+          "Ödemeniz başarıyla tamamlandıysa hesabınız birkaç saniye içinde Pro plana geçirilecektir."
         );
       }
     } catch (error: any) {
