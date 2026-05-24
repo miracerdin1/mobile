@@ -33,6 +33,7 @@ import HomeHeader from "../components/HomeHeader";
 import CategoryTabs from "../components/CategoryTabs";
 import FolderList from "../components/FolderList";
 import LinkList from "../components/LinkList";
+import { PaywallModal } from "../components/PaywallModal";
 
 // Import modular hooks
 import { useProfile } from "../hooks/useProfile";
@@ -125,6 +126,9 @@ export default function Index() {
     handleRemoveCollaborator,
     handleLeaveFolder,
     foldersError,
+    paywallVisible,
+    setPaywallVisible,
+    paywallReason,
   } = useFolders({
     selectedFolderId,
     setSelectedFolderId,
@@ -395,6 +399,56 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <HomeHeader searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+
+      {/* Plan & Quota Tracking Bar */}
+      {currentUser && (
+        <View style={{
+          backgroundColor: '#ffffff',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: '#f0f0f0',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{
+              backgroundColor: currentUser.plan === 'pro' ? '#FFF9C4' : '#F5F5F5',
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: 8,
+              marginRight: 8,
+              borderWidth: 1,
+              borderColor: currentUser.plan === 'pro' ? '#FBC02D' : '#E0E0E0'
+            }}>
+              <Text style={{
+                fontSize: 10,
+                fontWeight: '900',
+                color: currentUser.plan === 'pro' ? '#F57F17' : '#616161'
+              }}>
+                {currentUser.plan === 'pro' ? '👑 PRO ÜYE' : '🆓 FREE ÜYE'}
+              </Text>
+            </View>
+            {currentUser.plan !== 'pro' && (
+              <Text style={{ fontSize: 12, color: '#616161', fontWeight: '500' }}>
+                Kota: {links.length} / 30 Link
+              </Text>
+            )}
+          </View>
+          {currentUser.plan !== 'pro' ? (
+            <TouchableOpacity onPress={() => setPaywallVisible(true)}>
+              <Text style={{ fontSize: 12, color: '#6C63FF', fontWeight: 'bold' }}>
+                Sınırları Kaldır ⚡
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ fontSize: 12, color: '#4CAF50', fontWeight: 'bold' }}>
+              Sınırsız Arşiv Aktif ✨
+            </Text>
+          )}
+        </View>
+      )}
 
       <CategoryTabs
         categories={categories}
@@ -783,6 +837,13 @@ export default function Index() {
           onScheduleReminder={handleScheduleReminder}
           onCancelReminder={handleCancelReminder}
           onToggleSmartReminders={handleToggleSmartReminders}
+        />
+
+        {/* Pro Plan Paywall Modal */}
+        <PaywallModal
+          visible={paywallVisible}
+          onClose={() => setPaywallVisible(false)}
+          reason={paywallReason}
         />
       </Portal>
 

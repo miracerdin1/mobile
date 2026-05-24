@@ -74,8 +74,9 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
       setClipboardUrl(null);
       setClipboardFolderId(null);
       onSaveSuccess();
-    } catch (error) {
-      Alert.alert("Error", "Failed to save link from clipboard");
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message || "Panodan bağlantı kaydedilemedi.";
+      Alert.alert("Hata", errMsg);
     } finally {
       setSavingClipboard(false);
     }

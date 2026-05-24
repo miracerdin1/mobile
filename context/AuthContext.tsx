@@ -9,6 +9,7 @@ type AuthContextType = {
   loading: boolean;
   login: (token: string, userData: any) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (userData: any) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ export const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => {},
   logout: async () => {},
+  updateUser: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -73,8 +75,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUser = async (updatedUser: any) => {
+    try {
+      if (token) {
+        await saveStoredAuth(token, updatedUser);
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Error updating user state', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, token, loading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
