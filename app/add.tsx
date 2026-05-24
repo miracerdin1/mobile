@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
 import Config from "../constants/Config";
+import { getStoredToken } from "../services/authStorage";
 
 export default function AddLink() {
   const router = useRouter();
@@ -18,7 +19,18 @@ export default function AddLink() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFolders();
+    const init = async () => {
+      try {
+        const token = await getStoredToken();
+        if (token) {
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        await fetchFolders();
+      } catch (err) {
+        console.error("Initialization error in AddLink:", err);
+      }
+    };
+    init();
   }, []);
 
   const fetchFolders = async () => {
@@ -26,7 +38,7 @@ export default function AddLink() {
       const response = await axios.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
-      console.error("Fetch folders error in AddLink:", err);
+      console.warn("Fetch folders error in AddLink:", err);
     }
   };
 
