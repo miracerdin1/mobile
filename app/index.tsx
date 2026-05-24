@@ -414,29 +414,29 @@ export default function Index() {
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{
-              backgroundColor: currentUser.plan === 'pro' ? '#FFF9C4' : '#F5F5F5',
+              backgroundColor: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#FFF9C4' : '#F5F5F5',
               paddingHorizontal: 8,
               paddingVertical: 3,
               borderRadius: 8,
               marginRight: 8,
               borderWidth: 1,
-              borderColor: currentUser.plan === 'pro' ? '#FBC02D' : '#E0E0E0'
+              borderColor: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#FBC02D' : '#E0E0E0'
             }}>
               <Text style={{
                 fontSize: 10,
                 fontWeight: '900',
-                color: currentUser.plan === 'pro' ? '#F57F17' : '#616161'
+                color: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#F57F17' : '#616161'
               }}>
-                {currentUser.plan === 'pro' ? '👑 PRO ÜYE' : '🆓 FREE ÜYE'}
+                {currentUser.role === 'admin' ? '👑 ADMIN' : currentUser.plan === 'pro' ? '👑 PRO ÜYE' : '🆓 FREE ÜYE'}
               </Text>
             </View>
-            {currentUser.plan !== 'pro' && (
+            {(currentUser.plan !== 'pro' && currentUser.role !== 'admin') && (
               <Text style={{ fontSize: 12, color: '#616161', fontWeight: '500' }}>
                 Kota: {links.length} / 30 Link
               </Text>
             )}
           </View>
-          {currentUser.plan !== 'pro' ? (
+          {(currentUser.plan !== 'pro' && currentUser.role !== 'admin') ? (
             <TouchableOpacity onPress={() => setPaywallVisible(true)}>
               <Text style={{ fontSize: 12, color: '#6C63FF', fontWeight: 'bold' }}>
                 Sınırları Kaldır ⚡
