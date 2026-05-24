@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import { setAuthToken, setLogoutCallback } from '../services/api';
 import { clearStoredAuth, getStoredAuth, saveStoredAuth } from '../services/authStorage';
 
 type AuthContextType = {
@@ -28,21 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     loadAuthState();
-
-    const interceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          console.log('[Axios Interceptor] 401/403 detected, logging out...');
-          logout();
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      axios.interceptors.response.eject(interceptor);
-    };
+    setLogoutCallback(logout);
   }, []);
 
   const loadAuthState = async () => {
@@ -52,6 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (storedToken && storedUser) {
         setToken(storedToken);
+        setAuthToken(storedToken);
         setUser(JSON.parse(storedUser));
         setIsAuthenticated(true);
       }
@@ -66,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await saveStoredAuth(newToken, userData);
       setToken(newToken);
+      setAuthToken(newToken);
       setUser(userData);
       setIsAuthenticated(true);
     } catch (error) {
@@ -77,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await clearStoredAuth();
       setToken(null);
+      setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
