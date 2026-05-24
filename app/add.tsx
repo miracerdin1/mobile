@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "../services/api";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -23,7 +23,7 @@ export default function AddLink() {
       try {
         const token = await getStoredToken();
         if (token) {
-          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          
         }
         await fetchFolders();
       } catch (err) {
@@ -35,7 +35,7 @@ export default function AddLink() {
 
   const fetchFolders = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      const response = await api.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
       console.warn("Fetch folders error in AddLink:", err);
@@ -61,7 +61,7 @@ export default function AddLink() {
 
     try {
       console.log(`Sending request to: ${Config.API_URL}/api/links`);
-      const response = await axios.post(`${Config.API_URL}/api/links`, {
+      const response = await api.post(`${Config.API_URL}/api/links`, {
         url,
         folderId: selectedFolderId,
         isPublic,

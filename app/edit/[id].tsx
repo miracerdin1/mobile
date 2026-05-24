@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "../../services/api";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
@@ -27,7 +27,7 @@ export default function EditLink() {
       try {
         const token = await getStoredToken();
         if (token) {
-          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          
         }
         if (id) {
           await Promise.all([fetchLinkDetails(), fetchFolders()]);
@@ -43,7 +43,7 @@ export default function EditLink() {
 
   const fetchFolders = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      const response = await api.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
     } catch (err) {
       console.warn("Fetch folders error in EditLink:", err);
@@ -52,7 +52,7 @@ export default function EditLink() {
 
   const fetchLinkDetails = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/links`);
+      const response = await api.get(`${Config.API_URL}/api/links`);
       const link = response.data.find((l: any) => l._id === id);
       if (link) {
         setTitle(link.title || "");
@@ -74,7 +74,7 @@ export default function EditLink() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await axios.put(`${Config.API_URL}/api/links/${id}`, {
+      await api.put(`${Config.API_URL}/api/links/${id}`, {
         title,
         description,
         url,

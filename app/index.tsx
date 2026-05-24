@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import api from "../services/api";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
 import * as Notifications from "expo-notifications";
@@ -145,7 +145,7 @@ export default function Index() {
   // 1. Initial Authentication Check handled by AuthContext
   useEffect(() => {
     if (isAuthenticated && token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      
       connectSocket(token);
       setLoading(true);
       Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
@@ -153,7 +153,7 @@ export default function Index() {
       );
     } else if (!authLoading) {
       // Cleared state for Guest Mode
-      axios.defaults.headers.common["Authorization"] = "";
+      
       disconnectSocket();
       setLinks([]);
       setFolders([]);
@@ -352,7 +352,7 @@ export default function Index() {
   // 3. Data Fetching
   const fetchLinks = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/links`);
+      const response = await api.get(`${Config.API_URL}/api/links`);
       setLinks(response.data);
       setFetchError(false);
     } catch (err) {
@@ -363,7 +363,7 @@ export default function Index() {
 
   const fetchFolders = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/folders`);
+      const response = await api.get(`${Config.API_URL}/api/folders`);
       setFolders(response.data);
       setFetchError(false);
     } catch (err) {
@@ -374,7 +374,7 @@ export default function Index() {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get(`${Config.API_URL}/api/profile`);
+      const response = await api.get(`${Config.API_URL}/api/profile`);
       if (response.data) {
         setProfileName(
           response.data.name || currentUser?.username || "LinkFlow Kullanıcısı",
@@ -480,7 +480,7 @@ export default function Index() {
     }
     setSavingProfile(true);
     try {
-      await axios.post(`${Config.API_URL}/api/profile`, {
+      await api.post(`${Config.API_URL}/api/profile`, {
         name: profileName.trim(),
         bio: profileBio.trim(),
         avatarUrl: profileAvatarUrl.trim(),
@@ -608,7 +608,7 @@ export default function Index() {
 
     try {
       if (editingFolder) {
-        const response = await axios.put(
+        const response = await api.put(
           `${Config.API_URL}/api/folders/${editingFolder._id}`,
           {
             name: folderName,
@@ -621,7 +621,7 @@ export default function Index() {
           prev.map((f) => (f._id === editingFolder._id ? response.data : f)),
         );
       } else {
-        const response = await axios.post(`${Config.API_URL}/api/folders`, {
+        const response = await api.post(`${Config.API_URL}/api/folders`, {
           name: folderName,
           color: folderColor,
           icon: folderIcon,
@@ -651,7 +651,7 @@ export default function Index() {
           style: "destructive",
           onPress: async () => {
             try {
-              await axios.delete(`${Config.API_URL}/api/folders/${id}`);
+              await api.delete(`${Config.API_URL}/api/folders/${id}`);
               setFolders((prev) => prev.filter((f) => f._id !== id));
               if (selectedFolderId === id) {
                 setSelectedFolderId(null);
@@ -674,7 +674,7 @@ export default function Index() {
     }
     setInviting(true);
     try {
-      const response = await axios.post(
+      const response = await api.post(
         `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators`,
         {
           usernameOrEmail: inviteUsernameOrEmail.trim(),
@@ -704,7 +704,7 @@ export default function Index() {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await axios.delete(
+              const response = await api.delete(
                 `${Config.API_URL}/api/folders/${selectedFolderId}/collaborators/${colUserId}`,
               );
               setFolders((prev) =>
@@ -732,7 +732,7 @@ export default function Index() {
           style: "destructive",
           onPress: async () => {
             try {
-              await axios.post(
+              await api.post(
                 `${Config.API_URL}/api/folders/${selectedFolderId}/leave`,
               );
               setSelectedFolderId(null);
@@ -888,7 +888,7 @@ export default function Index() {
   // Link Actions
   const deleteLinkItem = async (id: string) => {
     try {
-      await axios.delete(`${Config.API_URL}/api/links/${id}`);
+      await api.delete(`${Config.API_URL}/api/links/${id}`);
       setLinks((prev) => prev.filter((link) => link._id !== id));
     } catch (err) {
       Alert.alert("Error", "Failed to delete link");
@@ -928,7 +928,7 @@ export default function Index() {
 
     setSavingClipboard(true);
     try {
-      await axios.post(`${Config.API_URL}/api/links`, {
+      await api.post(`${Config.API_URL}/api/links`, {
         url: clipboardUrl,
         folderId: clipboardFolderId,
       });
