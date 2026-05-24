@@ -131,7 +131,7 @@ export default function LinkCard({
             </View>
 
             <Text variant="titleMedium" numberOfLines={2} style={styles.title}>
-              {title || url}
+              {title || (siteName ? siteName : "Bağlantı")}
             </Text>
 
             {description && (
@@ -159,16 +159,19 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
   },
   image: {
-    width: 100,
-    height: "100%",
+    width: 48,
+    height: 48,
+    borderRadius: 10,
     resizeMode: "cover",
     backgroundColor: "#eee",
+    marginRight: 12,
   },
   content: {
     flex: 1,
-    padding: 12,
   },
   header: {
     flexDirection: "row",
