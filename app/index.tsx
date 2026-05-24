@@ -41,6 +41,7 @@ import {
   joinFolderRoom,
   leaveFolderRoom,
 } from "../services/socket";
+import { useAuth } from "../context/AuthContext";
 
 // Import modular components
 import BioSettingsDialog from "../components/BioSettingsDialog";
@@ -78,9 +79,7 @@ export default function Index() {
   const navigation = useNavigation();
 
   // Authentication State
-  const [token, setToken] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { token, user: currentUser, isAuthenticated, logout: contextLogout, loading: authLoading } = useAuth();
 
   // General App State
   const [links, setLinks] = useState<Link[]>([]);
@@ -143,28 +142,24 @@ export default function Index() {
   const [webCustomDateTime, setWebCustomDateTime] = useState("");
   const [fetchError, setFetchError] = useState<boolean>(false);
 
-  // 1. Initial Authentication Check
-  const checkAuth = async () => {
-    try {
-      const storedToken = await AsyncStorage.getItem("userToken");
-      const storedUser = await AsyncStorage.getItem("userData");
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setCurrentUser(JSON.parse(storedUser));
-        axios.defaults.headers.common["Authorization"] =
-          `Bearer ${storedToken}`;
-        connectSocket();
-      }
-    } catch (e) {
-      console.error("Auth check failed:", e);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
+  // 1. Initial Authentication Check handled by AuthContext
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (isAuthenticated && token) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      connectSocket();
+      setLoading(true);
+      Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
+        setLoading(false),
+      );
+    } else if (!authLoading) {
+      // Cleared state for Guest Mode
+      axios.defaults.headers.common["Authorization"] = "";
+      disconnectSocket();
+      setLinks([]);
+      setFolders([]);
+      setSelectedFolderId(null);
+    }
+  }, [isAuthenticated, token, authLoading]);
 
   // Notifications Permissions, Response Listener & AsyncStorage Loading
   useEffect(() => {
@@ -228,31 +223,11 @@ export default function Index() {
     }
   }, []);
 
-  const handleAuthSuccess = (newToken: string, newUser: any) => {
-    setToken(newToken);
-    setCurrentUser(newUser);
-    axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-    connectSocket();
-
-    setLoading(true);
-    Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
-      setLoading(false),
-    );
-  };
-
   const handleLogout = async () => {
     console.log("[Logout] handleLogout triggered");
     const performLogout = async () => {
       try {
-        await AsyncStorage.removeItem("userToken");
-        await AsyncStorage.removeItem("userData");
-        axios.defaults.headers.common["Authorization"] = "";
-        disconnectSocket();
-        setToken(null);
-        setCurrentUser(null);
-        setLinks([]);
-        setFolders([]);
-        setSelectedFolderId(null);
+        await contextLogout();
       } catch (e) {
         console.error("Logout failed:", e);
       }
@@ -945,6 +920,12 @@ export default function Index() {
 
   const handleSaveClipboard = async () => {
     if (!clipboardUrl) return;
+    
+    if (!isAuthenticated) {
+      router.push("/auth");
+      return;
+    }
+
     setSavingClipboard(true);
     try {
       await axios.post(`${Config.API_URL}/api/links`, {
@@ -974,12 +955,12 @@ export default function Index() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!token) return;
+      if (!isAuthenticated) return;
       setLoading(true);
       Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
         setLoading(false),
       );
-    }, [token]),
+    }, [isAuthenticated]),
   );
 
   // Queries filtering
@@ -1020,10 +1001,7 @@ export default function Index() {
     );
   }
 
-  // Render Auth overlay if no token
-  if (!token) {
-    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
-  }
+  // Guest mode allowed! removed instant AuthScreen return
 
   return (
     <View style={styles.container}>
@@ -1583,7 +1561,17 @@ export default function Index() {
         />
       )}
 
-      <FAB icon="plus" style={styles.fab} onPress={() => router.push("/add")} />
+      <FAB 
+        icon="plus" 
+        style={styles.fab} 
+        onPress={() => {
+          if (!isAuthenticated) {
+            router.push("/auth");
+          } else {
+            router.push("/add");
+          }
+        }} 
+      />
 
       {/* Clipboard Prompt UI */}
       <ClipboardPrompt
