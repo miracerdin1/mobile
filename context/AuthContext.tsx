@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { clearStoredAuth, getStoredAuth, saveStoredAuth } from '../services/authStorage';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -48,8 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadAuthState = async () => {
     try {
       setLoading(true);
-      const storedToken = await AsyncStorage.getItem('userToken');
-      const storedUser = await AsyncStorage.getItem('userData');
+      const { token: storedToken, userData: storedUser } = await getStoredAuth();
 
       if (storedToken && storedUser) {
         setToken(storedToken);
@@ -65,8 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (newToken: string, userData: any) => {
     try {
-      await AsyncStorage.setItem('userToken', newToken);
-      await AsyncStorage.setItem('userData', JSON.stringify(userData));
+      await saveStoredAuth(newToken, userData);
       setToken(newToken);
       setUser(userData);
       setIsAuthenticated(true);
@@ -77,8 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('userData');
+      await clearStoredAuth();
       setToken(null);
       setUser(null);
       setIsAuthenticated(false);

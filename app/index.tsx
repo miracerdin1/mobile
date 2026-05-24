@@ -146,7 +146,7 @@ export default function Index() {
   useEffect(() => {
     if (isAuthenticated && token) {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      connectSocket();
+      connectSocket(token);
       setLoading(true);
       Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]).finally(() =>
         setLoading(false),
@@ -255,7 +255,7 @@ export default function Index() {
   // 2. WebSocket Real-time subscriptions
   useEffect(() => {
     if (token && selectedFolderId) {
-      joinFolderRoom(selectedFolderId);
+      joinFolderRoom(selectedFolderId, token);
       return () => {
         leaveFolderRoom(selectedFolderId);
       };
@@ -265,7 +265,7 @@ export default function Index() {
   useEffect(() => {
     if (!token || !currentUser) return;
 
-    const activeSocket = connectSocket();
+    const activeSocket = connectSocket(token);
 
     const handleLinkCreated = (newLink: any) => {
       console.log("[Socket Event] link_created received:", newLink._id);
