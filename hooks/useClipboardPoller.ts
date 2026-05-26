@@ -13,13 +13,23 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
   const [savingClipboard, setSavingClipboard] = useState(false);
   const [clipboardFolderId, setClipboardFolderId] = useState<string | null>(null);
 
-  const checkClipboard = useCallback(async () => {
+  const checkClipboard = useCallback(async (isManual: boolean = false) => {
     try {
       if (!token) return;
-      if (Platform.OS === "web") return; // Web browsers restrict automatic clipboard access
+      if (Platform.OS === "web") {
+        if (isManual) {
+          Alert.alert("Bilgi", "Web tarayıcılarında pano erişimi kısıtlıdır.");
+        }
+        return;
+      }
 
       const hasString = await Clipboard.hasStringAsync();
-      if (!hasString) return;
+      if (!hasString) {
+        if (isManual) {
+          Alert.alert("Bilgi", "Panonuz boş veya metin içermiyor.");
+        }
+        return;
+      }
 
       const content = await Clipboard.getStringAsync();
       const urlPattern =
@@ -27,33 +37,26 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
 
       if (urlPattern.test(content)) {
         const lastSaved = await AsyncStorage.getItem("lastSavedClipboardUrl");
-        if (lastSaved !== content) {
+        if (lastSaved !== content || isManual) {
           setClipboardUrl(content);
           setShowClipboardPrompt(true);
+        } else if (isManual) {
+          // If already saved but user clicked manually, still show it to allow editing/moving
+          setClipboardUrl(content);
+          setShowClipboardPrompt(true);
+        }
+      } else {
+        if (isManual) {
+          Alert.alert("Bilgi", "Panonuzda geçerli bir bağlantı (URL) bulunamadı.");
         }
       }
     } catch (error) {
       console.error("Clipboard check error:", error);
+      if (isManual) {
+        Alert.alert("Hata", "Pano kontrol edilirken bir hata oluştu.");
+      }
     }
   }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const subscription = AppState.addEventListener(
-      "change",
-      (nextAppState: AppStateStatus) => {
-        if (nextAppState === "active") {
-          checkClipboard();
-        }
-      },
-    );
-
-    checkClipboard(); // Initial check
-
-    return () => {
-      subscription.remove();
-    };
-  }, [token, checkClipboard]);
 
   const handleSaveClipboard = useCallback(async () => {
     if (!clipboardUrl) return;
