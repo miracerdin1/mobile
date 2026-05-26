@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Linking } from "react-native";
 import { Button, Dialog, Divider, Text } from "react-native-paper";
 import { AccountSettingsDialogProps } from "../types";
 
@@ -53,6 +53,36 @@ export default function AccountSettingsDialog({
             </Button>
           </>
         )}
+
+        <Divider style={styles.divider} />
+
+        <Text variant="titleSmall" style={styles.legalTitle}>
+          Yasal ve Gizlilik
+        </Text>
+        <Text variant="bodySmall" style={styles.legalText}>
+          Kullanım koşullarımızı ve gizlilik politikamızı inceleyebilirsiniz.
+        </Text>
+
+        <View style={styles.legalRow}>
+          <Button
+            mode="outlined"
+            icon="shield-account-outline"
+            style={styles.legalButton}
+            labelStyle={styles.legalButtonLabel}
+            onPress={() => Linking.openURL("https://linkflow.com/privacy")}
+          >
+            Gizlilik Politikası
+          </Button>
+          <Button
+            mode="outlined"
+            icon="file-document-outline"
+            style={[styles.legalButton, { marginTop: 8 }]}
+            labelStyle={styles.legalButtonLabel}
+            onPress={() => Linking.openURL("https://linkflow.com/terms")}
+          >
+            Kullanım Koşulları
+          </Button>
+        </View>
 
         <Divider style={styles.divider} />
 
@@ -120,5 +150,24 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderColor: "#d32f2f",
+  },
+  legalTitle: {
+    color: "#222",
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  legalText: {
+    color: "#666",
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  legalRow: {
+    marginBottom: 4,
+  },
+  legalButton: {
+    borderColor: "#ccc",
+  },
+  legalButtonLabel: {
+    color: "#6200ee",
   },
 });

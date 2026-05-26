@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
+import * as Clipboard from "expo-clipboard";
 import Config from "../constants/Config";
 import { getStoredToken } from "../services/authStorage";
 import { PaywallModal } from "../components/PaywallModal";
@@ -102,6 +103,26 @@ export default function AddLink() {
         keyboardType="url"
         error={!!error}
         style={{ marginBottom: 4 }}
+        right={
+          <TextInput.Icon
+            icon="content-paste"
+            onPress={async () => {
+              try {
+                const hasString = await Clipboard.hasStringAsync();
+                if (hasString) {
+                  const content = await Clipboard.getStringAsync();
+                  setUrl(content);
+                  setError("");
+                } else {
+                  Alert.alert("Bilgi", "Panonuz boş veya bir metin içermiyor.");
+                }
+              } catch (err) {
+                console.error("Paste error:", err);
+                Alert.alert("Hata", "Panodan veri yapıştırılamadı.");
+              }
+            }}
+          />
+        }
       />
       <HelperText type="error" visible={!!error}>
         {error}

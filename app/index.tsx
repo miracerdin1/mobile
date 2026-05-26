@@ -174,6 +174,7 @@ export default function Index() {
     setClipboardFolderId,
     handleSaveClipboard,
     handleDismissClipboard,
+    checkClipboard,
   } = useClipboardPoller(fetchLinks);
 
   // 6. Reminders Hook
@@ -424,7 +425,11 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <HomeHeader searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+      <HomeHeader
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onClipboardPress={() => checkClipboard(true)}
+      />
 
       {/* Plan & Quota Tracking Bar */}
       {currentUser && (
