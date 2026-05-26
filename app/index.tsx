@@ -34,6 +34,8 @@ import CategoryTabs from "../components/CategoryTabs";
 import FolderList from "../components/FolderList";
 import LinkList from "../components/LinkList";
 import { PaywallModal } from "../components/PaywallModal";
+import AccountSettingsDialog from "../components/AccountSettingsDialog";
+import { manageStoreSubscription } from "../services/storeBilling";
 
 // Import modular hooks
 import { useProfile } from "../hooks/useProfile";
@@ -42,6 +44,7 @@ import { useReminders } from "../hooks/useReminders";
 import { useFolders } from "../hooks/useFolders";
 import { useLinks } from "../hooks/useLinks";
 import { useCategories } from "../hooks/useCategories";
+import { useAccountDeletion } from "../hooks/useAccountDeletion";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -68,6 +71,14 @@ export default function Index() {
     logout: contextLogout,
     loading: authLoading,
   } = useAuth();
+
+  const {
+    accountSettingsVisible,
+    setAccountSettingsVisible,
+    closeAccountSettings,
+    deletingAccount,
+    requestAccountDeletion,
+  } = useAccountDeletion(contextLogout);
 
   // 1. Categories Hook
   const {
@@ -287,6 +298,20 @@ export default function Index() {
           }}
         >
           <IconButton
+            icon="account-cog-outline"
+            size={21}
+            onPress={() => setAccountSettingsVisible(true)}
+            iconColor="#333"
+            style={{
+              margin: 0,
+              padding: 0,
+              width: 36,
+              height: 36,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          />
+          <IconButton
             icon="earth"
             size={21}
             onPress={() => setBioSettingsVisible(true)}
@@ -337,6 +362,7 @@ export default function Index() {
     currentUser,
     handleLogout,
     handleShareProfile,
+    setAccountSettingsVisible,
     setBioSettingsVisible,
   ]);
 
@@ -574,6 +600,16 @@ export default function Index() {
       )}
 
       <Portal>
+        {/* Account Settings Dialog */}
+        <AccountSettingsDialog
+          visible={accountSettingsVisible}
+          onDismiss={closeAccountSettings}
+          currentUser={currentUser}
+          deletingAccount={deletingAccount}
+          onDeleteAccount={requestAccountDeletion}
+          onManageSubscription={() => manageStoreSubscription(currentUser)}
+        />
+
         {/* Reorder Categories Dialog */}
         <Dialog
           visible={manageCategoriesVisible}

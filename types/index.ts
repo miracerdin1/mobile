@@ -3,6 +3,8 @@ export interface User {
   _id?: string;
   username: string;
   email?: string;
+  plan?: "free" | "pro";
+  role?: "user" | "admin";
 }
 
 export interface Folder {
@@ -62,6 +64,15 @@ export interface BioSettingsDialogProps {
   savingProfile: boolean;
   onSave: () => Promise<void>;
   theme: any;
+}
+
+export interface AccountSettingsDialogProps {
+  visible: boolean;
+  onDismiss: () => void;
+  currentUser: User | null;
+  deletingAccount: boolean;
+  onDeleteAccount: () => void;
+  onManageSubscription?: () => void;
 }
 
 export interface ClipboardPromptProps {
