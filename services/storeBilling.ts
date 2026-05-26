@@ -90,6 +90,15 @@ export const ensureStoreBillingConfigured = async (user: StoreBillingUser | null
 
   if (configuredUserId !== userId) {
     await Purchases.logIn(userId);
+    
+    if (user?.email) {
+      await Purchases.setEmail(user.email);
+    }
+    
+    if (user?.username) {
+      await Purchases.setDisplayName(user.username);
+    }
+
     configuredUserId = userId;
   }
 };
