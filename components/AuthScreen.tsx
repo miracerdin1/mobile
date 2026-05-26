@@ -82,7 +82,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         });
 
         const { token, user } = response.data;
-        
+
         onAuthSuccess(token, user);
       } else {
         const response = await api.post(`${Config.API_URL}/api/auth/register`, {
@@ -93,12 +93,17 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
         const { token, user } = response.data;
 
-        Alert.alert("Başarılı", `Hoş geldiniz @${user.username}! Kaydınız başarıyla oluşturuldu.`);
+        Alert.alert(
+          "Başarılı",
+          `Hoş geldiniz @${user.username}! Kaydınız başarıyla oluşturuldu.`,
+        );
         onAuthSuccess(token, user);
       }
     } catch (err: any) {
       console.error("Auth error:", err.response?.data || err.message);
-      const serverError = err.response?.data?.error || "Giriş yapılamadı. Lütfen bilgilerinizi kontrol edin.";
+      const serverError =
+        err.response?.data?.error ||
+        "Giriş yapılamadı. Lütfen bilgilerinizi kontrol edin.";
       setError(serverError);
     } finally {
       setLoading(false);
@@ -217,7 +222,9 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
           <View style={styles.switchContainer}>
             <Text style={styles.switchText}>
-              {isLogin ? "Henüz bir hesabınız yok mu? " : "Zaten hesabınız var mı? "}
+              {isLogin
+                ? "Henüz bir hesabınız yok mu? "
+                : "Zaten hesabınız var mı? "}
             </Text>
             <TouchableOpacity onPress={toggleMode}>
               <Text style={styles.switchLink}>
@@ -227,7 +234,9 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           </View>
         </Surface>
 
-        <Text style={styles.footerText}>Ortak klasörler ile gerçek zamanlı iş birliği</Text>
+        <Text style={styles.footerText}>
+          Ortak klasörler ile gerçek zamanlı iş birliği
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
