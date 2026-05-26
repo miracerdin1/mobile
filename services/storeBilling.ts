@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import Purchases, {
   CustomerInfo,
   LOG_LEVEL,
@@ -164,4 +164,32 @@ export const getStoreBillingErrorMessage = (error: unknown) => {
   if (purchaseError?.message) return purchaseError.message;
 
   return "Satın alma işlemi tamamlanamadı.";
+};
+
+export const manageStoreSubscription = async (user: StoreBillingUser | null) => {
+  await ensureStoreBillingConfigured(user);
+
+  try {
+    const customerInfo = await Purchases.getCustomerInfo();
+    const managementURL = customerInfo.managementURL;
+
+    if (managementURL) {
+      const supported = await Linking.canOpenURL(managementURL);
+      if (supported) {
+        await Linking.openURL(managementURL);
+        return;
+      }
+    }
+  } catch (error) {
+    console.error("Failed to get customer info for management url", error);
+  }
+
+  // Fallbacks if no URL is returned or fails to open
+  if (Platform.OS === "ios") {
+    await Linking.openURL("https://apps.apple.com/account/subscriptions");
+  } else if (Platform.OS === "android") {
+    await Linking.openURL("https://play.google.com/store/account/subscriptions");
+  } else {
+    throw new Error("Abonelik yönetimi bu platformda desteklenmiyor.");
+  }
 };
