@@ -4,7 +4,13 @@
 // For iOS Simulator, 'http://localhost:3000' works using localhost
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://linkflow-server-uask.onrender.com";
+const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || "";
+const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || "";
+const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID || "pro";
 
 export default {
   API_URL,
+  REVENUECAT_ANDROID_API_KEY,
+  REVENUECAT_ENTITLEMENT_ID,
+  REVENUECAT_IOS_API_KEY,
 };
