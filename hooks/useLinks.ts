@@ -5,6 +5,7 @@ import Config from "../constants/Config";
 import { Link } from "~/types";
 import { useAuth } from "../context/AuthContext";
 import { connectSocket } from "../services/socket";
+import { showAlert } from "../utils/alert";
 
 export function useLinks(selectedFolderId: string | null) {
   const { token, user: currentUser, isAuthenticated } = useAuth();
@@ -12,6 +13,7 @@ export function useLinks(selectedFolderId: string | null) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [linksError, setLinksError] = useState(false);
+  const [checkingBroken, setCheckingBroken] = useState(false);
 
   const selectedFolderIdRef = useRef(selectedFolderId);
   useEffect(() => {
@@ -105,6 +107,39 @@ export function useLinks(selectedFolderId: string | null) {
     [deleteLinkItem],
   );
 
+  /**
+   * Bulk-checks the user's links for reachability (server caps this at 60
+   * links per call, prioritizing never-checked ones). Merges the results
+   * back into state and returns a summary for the caller to surface.
+   */
+  const checkBrokenLinks = useCallback(async (): Promise<{
+    checked: number;
+    brokenCount: number;
+  } | null> => {
+    setCheckingBroken(true);
+    try {
+      const response = await api.post(`${Config.API_URL}/api/links/check-broken`);
+      const { checked, brokenCount, links: checkedLinks } = response.data as {
+        checked: number;
+        brokenCount: number;
+        links: Link[];
+      };
+
+      setLinks((prev) => {
+        const byId = new Map(checkedLinks.map((l) => [l._id, l]));
+        return prev.map((link) => byId.get(link._id) ?? link);
+      });
+
+      return { checked, brokenCount };
+    } catch (err) {
+      console.warn("Check broken links error:", err);
+      showAlert("Hata", "Bozuk link kontrolü şu anda yapılamadı.");
+      return null;
+    } finally {
+      setCheckingBroken(false);
+    }
+  }, []);
+
   return {
     links,
     setLinks,
@@ -116,5 +151,7 @@ export function useLinks(selectedFolderId: string | null) {
     fetchLinks,
     deleteLinkItem,
     handleDelete,
+    checkingBroken,
+    checkBrokenLinks,
   };
 }

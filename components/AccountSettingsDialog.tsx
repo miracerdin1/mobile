@@ -1,6 +1,8 @@
 import React from "react";
-import { StyleSheet, View, Linking } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import { Button, Dialog, Divider, Text } from "react-native-paper";
+
+import { useAppTheme } from "../hooks/useAppTheme";
 import { AccountSettingsDialogProps } from "../types";
 
 export default function AccountSettingsDialog({
@@ -10,164 +12,137 @@ export default function AccountSettingsDialog({
   deletingAccount,
   onDeleteAccount,
   onManageSubscription,
+  checkingBroken,
+  onCheckBrokenLinks,
 }: AccountSettingsDialogProps) {
+  const theme = useAppTheme();
+  const isPro = currentUser?.plan === "pro" || currentUser?.role === "admin";
+
   return (
-    <Dialog visible={visible} onDismiss={onDismiss}>
-      <Dialog.Title>Hesap Ayarlari</Dialog.Title>
+    <Dialog visible={visible} onDismiss={onDismiss} style={{ borderRadius: theme.radius.lg }}>
+      <Dialog.Title>Hesap Ayarları</Dialog.Title>
       <Dialog.Content>
-        <View style={styles.accountRow}>
-          <Text variant="labelMedium" style={styles.label}>
-            Kullanici adi
-          </Text>
-          <Text variant="bodyMedium" style={styles.value}>
-            @{currentUser?.username || "-"}
-          </Text>
-        </View>
-
-        <View style={styles.accountRow}>
-          <Text variant="labelMedium" style={styles.label}>
-            E-posta
-          </Text>
-          <Text variant="bodyMedium" style={styles.value}>
-            {currentUser?.email || "-"}
-          </Text>
-        </View>
-
-        {currentUser?.plan === "pro" && (
-          <>
-            <Divider style={styles.divider} />
-            <Text variant="titleSmall" style={styles.manageTitle}>
-              Abonelik
+        <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+          <View style={{ marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+            <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 2 }}>
+              Kullanıcı adı
             </Text>
-            <Text variant="bodySmall" style={styles.dangerText}>
-              LinkFlow Pro aboneliğinizi yönetmek veya iptal etmek için mağaza
-              ayarlarınıza gidebilirsiniz.
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.semibold }}>
+              @{currentUser?.username || "-"}
             </Text>
+          </View>
+
+          <View style={{ marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+            <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 2 }}>
+              E-posta
+            </Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.semibold }}>
+              {currentUser?.email || "-"}
+            </Text>
+          </View>
+
+          {isPro && (
+            <>
+              <Divider style={{ marginVertical: theme.spacing.sm + theme.spacing.xs }} />
+              <Text variant="titleSmall" style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.semibold, marginBottom: theme.spacing.xs + 2 }}>
+                Abonelik
+              </Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 18, marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+                LinkFlow Pro aboneliğinizi yönetmek veya iptal etmek için mağaza
+                ayarlarınıza gidebilirsiniz.
+              </Text>
+              <Button
+                mode="outlined"
+                icon="open-in-new"
+                style={{ borderColor: theme.colors.outline }}
+                textColor={theme.colors.onSurface}
+                onPress={onManageSubscription}
+              >
+                Aboneliği Yönet / İptal Et
+              </Button>
+            </>
+          )}
+
+          <Divider style={{ marginVertical: theme.spacing.sm + theme.spacing.xs }} />
+
+          <Text variant="titleSmall" style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.semibold, marginBottom: theme.spacing.xs + 2 }}>
+            Bakım
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 18, marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+            Kayıtlı bağlantılarınızın hâlâ erişilebilir olup olmadığını kontrol
+            edin. Sonuçlar bağlantı kartlarında "Erişilemiyor" etiketiyle
+            gösterilir.
+          </Text>
+          <Button
+            mode="outlined"
+            icon="link-off"
+            style={{ borderColor: theme.colors.outline }}
+            textColor={theme.colors.onSurface}
+            loading={checkingBroken}
+            disabled={checkingBroken}
+            onPress={onCheckBrokenLinks}
+          >
+            {checkingBroken ? "Kontrol Ediliyor..." : "Bozuk Linkleri Kontrol Et"}
+          </Button>
+
+          <Divider style={{ marginVertical: theme.spacing.sm + theme.spacing.xs }} />
+
+          <Text variant="titleSmall" style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.semibold, marginBottom: theme.spacing.xs + 2 }}>
+            Yasal ve Gizlilik
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 18, marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+            Kullanım koşullarımızı ve gizlilik politikamızı inceleyebilirsiniz.
+          </Text>
+
+          <View style={{ marginBottom: theme.spacing.xs }}>
             <Button
               mode="outlined"
-              icon="open-in-new"
-              style={styles.manageButton}
-              onPress={onManageSubscription}
+              icon="shield-account-outline"
+              style={{ borderColor: theme.colors.outline }}
+              textColor={theme.colors.primary}
+              onPress={() => Linking.openURL("https://linkflow.com/privacy")}
             >
-              Aboneliği Yönet / İptal Et
+              Gizlilik Politikası
             </Button>
-          </>
-        )}
+            <Button
+              mode="outlined"
+              icon="file-document-outline"
+              style={{ borderColor: theme.colors.outline, marginTop: theme.spacing.sm }}
+              textColor={theme.colors.primary}
+              onPress={() => Linking.openURL("https://linkflow.com/terms")}
+            >
+              Kullanım Koşulları
+            </Button>
+          </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={{ marginVertical: theme.spacing.sm + theme.spacing.xs }} />
 
-        <Text variant="titleSmall" style={styles.legalTitle}>
-          Yasal ve Gizlilik
-        </Text>
-        <Text variant="bodySmall" style={styles.legalText}>
-          Kullanım koşullarımızı ve gizlilik politikamızı inceleyebilirsiniz.
-        </Text>
+          <Text variant="titleSmall" style={{ color: theme.colors.error, fontFamily: theme.fontFamily.semibold, marginBottom: theme.spacing.xs + 2 }}>
+            Hesabı Sil
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 18, marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+            Hesabınız, profiliniz, linkleriniz ve size ait klasörler kalıcı
+            olarak silinir. Bu işlem geri alınamaz.
+          </Text>
 
-        <View style={styles.legalRow}>
           <Button
             mode="outlined"
-            icon="shield-account-outline"
-            style={styles.legalButton}
-            labelStyle={styles.legalButtonLabel}
-            onPress={() => Linking.openURL("https://linkflow.com/privacy")}
+            icon="delete-outline"
+            textColor={theme.colors.error}
+            style={{ borderColor: theme.colors.error }}
+            loading={deletingAccount}
+            disabled={deletingAccount}
+            onPress={onDeleteAccount}
           >
-            Gizlilik Politikası
+            Hesabı Kalıcı Olarak Sil
           </Button>
-          <Button
-            mode="outlined"
-            icon="file-document-outline"
-            style={[styles.legalButton, { marginTop: 8 }]}
-            labelStyle={styles.legalButtonLabel}
-            onPress={() => Linking.openURL("https://linkflow.com/terms")}
-          >
-            Kullanım Koşulları
-          </Button>
-        </View>
-
-        <Divider style={styles.divider} />
-
-        <Text variant="titleSmall" style={styles.dangerTitle}>
-          Hesabi Sil
-        </Text>
-        <Text variant="bodySmall" style={styles.dangerText}>
-          Hesabiniz, profiliniz, linkleriniz ve size ait klasorler kalici
-          olarak silinir. Bu islem geri alinamaz.
-        </Text>
-
-        <Button
-          mode="outlined"
-          icon="delete-outline"
-          textColor="#d32f2f"
-          style={styles.deleteButton}
-          loading={deletingAccount}
-          disabled={deletingAccount}
-          onPress={onDeleteAccount}
-        >
-          Hesabi Kalici Olarak Sil
-        </Button>
+        </ScrollView>
       </Dialog.Content>
       <Dialog.Actions>
-        <Button onPress={onDismiss} disabled={deletingAccount}>
+        <Button onPress={onDismiss} disabled={deletingAccount} textColor={theme.colors.onSurfaceVariant}>
           Kapat
         </Button>
       </Dialog.Actions>
     </Dialog>
   );
 }
-
-const styles = StyleSheet.create({
-  accountRow: {
-    marginBottom: 12,
-  },
-  label: {
-    color: "#666",
-    marginBottom: 2,
-  },
-  value: {
-    color: "#222",
-    fontWeight: "600",
-  },
-  divider: {
-    marginVertical: 12,
-  },
-  manageTitle: {
-    color: "#222",
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  manageButton: {
-    borderColor: "#ccc",
-  },
-  dangerTitle: {
-    color: "#d32f2f",
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  dangerText: {
-    color: "#666",
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  deleteButton: {
-    borderColor: "#d32f2f",
-  },
-  legalTitle: {
-    color: "#222",
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  legalText: {
-    color: "#666",
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  legalRow: {
-    marginBottom: 4,
-  },
-  legalButton: {
-    borderColor: "#ccc",
-  },
-  legalButtonLabel: {
-    color: "#6200ee",
-  },
-});

@@ -1,23 +1,22 @@
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Linking,
   Platform,
   ScrollView,
-  StyleSheet,
-  View,
   TouchableOpacity,
-  Linking,
+  View,
 } from "react-native";
 import {
   ActivityIndicator,
+  Button,
+  Dialog,
   FAB,
+  Icon,
   IconButton,
   Portal,
   Text,
-  useTheme,
-  Dialog,
-  Button,
 } from "react-native-paper";
 import * as Notifications from "expo-notifications";
 import { useAuth } from "../context/AuthContext";
@@ -35,7 +34,9 @@ import FolderList from "../components/FolderList";
 import LinkList from "../components/LinkList";
 import { PaywallModal } from "../components/PaywallModal";
 import AccountSettingsDialog from "../components/AccountSettingsDialog";
+import PrimaryButton from "../components/PrimaryButton";
 import { manageStoreSubscription } from "../services/storeBilling";
+import { useAppTheme } from "../hooks/useAppTheme";
 
 // Import modular hooks
 import { useProfile } from "../hooks/useProfile";
@@ -45,6 +46,10 @@ import { useFolders } from "../hooks/useFolders";
 import { useLinks } from "../hooks/useLinks";
 import { useCategories } from "../hooks/useCategories";
 import { useAccountDeletion } from "../hooks/useAccountDeletion";
+import { useViewMode } from "../hooks/useViewMode";
+import { filterLinks } from "../utils/linkFilters";
+import { showAlert } from "../utils/alert";
+import { normalizeHttpUrl } from "../utils/url";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -60,7 +65,7 @@ if (Platform.OS !== "web") {
 
 export default function Index() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const navigation = useNavigation();
 
   // Authentication State
@@ -105,7 +110,11 @@ export default function Index() {
     linksError,
     fetchLinks,
     handleDelete,
+    checkingBroken,
+    checkBrokenLinks,
   } = useLinks(selectedFolderId);
+
+  const { viewMode, toggleViewMode } = useViewMode();
 
   // 3. Folders Hook
   const {
@@ -158,7 +167,8 @@ export default function Index() {
     setProfileTheme,
     savingProfile,
     bioSettingsVisible,
-    setBioSettingsVisible,
+    openBioSettings,
+    closeBioSettings,
     fetchProfile,
     handleSaveProfile,
     handleShareProfile,
@@ -221,8 +231,10 @@ export default function Index() {
         Notifications.addNotificationResponseReceivedListener((response) => {
           const url = response.notification.request.content.data?.url;
           if (typeof url === "string") {
-            console.log("[Notification Clicked] Opening URL:", url);
-            Linking.openURL(url).catch((err) =>
+            const safeUrl = normalizeHttpUrl(url);
+            if (!safeUrl) return;
+
+            Linking.openURL(safeUrl).catch((err) =>
               console.error("Failed to open URL from notification:", err),
             );
           }
@@ -275,7 +287,7 @@ export default function Index() {
       headerRightContainerStyle: {
         justifyContent: "end",
         alignItems: "center",
-        paddingRight: 8,
+        paddingRight: theme.spacing.sm,
       },
       headerRight: () => (
         <View
@@ -283,76 +295,47 @@ export default function Index() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "#ffffff",
-            borderRadius: 20,
+            backgroundColor: theme.colors.surface,
+            borderRadius: theme.radius.full,
             borderWidth: 1,
-            borderColor: "rgba(0, 0, 0, 0.08)",
-            paddingHorizontal: 6,
+            borderColor: theme.colors.outlineVariant,
+            paddingHorizontal: theme.spacing.xs + 2,
             height: 36,
             alignSelf: "center",
-            gap: 6,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 1,
+            gap: theme.spacing.xs + 2,
           }}
         >
           <IconButton
             icon="account-cog-outline"
             size={21}
             onPress={() => setAccountSettingsVisible(true)}
-            iconColor="#333"
-            style={{
-              margin: 0,
-              padding: 0,
-              width: 36,
-              height: 36,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
+            iconColor={theme.colors.onSurfaceVariant}
+            accessibilityLabel="Hesap ayarları"
+            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
           />
           <IconButton
             icon="earth"
             size={21}
-            onPress={() => setBioSettingsVisible(true)}
-            iconColor="#333"
-            style={{
-              margin: 0,
-              padding: 0,
-              width: 36,
-              height: 36,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
+            onPress={openBioSettings}
+            iconColor={theme.colors.onSurfaceVariant}
+            accessibilityLabel="Bio sayfası ayarları"
+            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
           />
           <IconButton
-            icon="share-variant"
+            icon="share-variant-outline"
             size={21}
             onPress={handleShareProfile}
-            iconColor="#333"
-            style={{
-              margin: 0,
-              padding: 0,
-              width: 36,
-              height: 36,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
+            iconColor={theme.colors.onSurfaceVariant}
+            accessibilityLabel="Profili paylaş"
+            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
           />
           <IconButton
             icon="logout"
             size={21}
             onPress={handleLogout}
-            iconColor="#d32f2f"
-            style={{
-              margin: 0,
-              padding: 0,
-              width: 36,
-              height: 36,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
+            iconColor={theme.colors.error}
+            accessibilityLabel="Çıkış yap"
+            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
           />
         </View>
       ),
@@ -364,13 +347,31 @@ export default function Index() {
     handleLogout,
     handleShareProfile,
     setAccountSettingsVisible,
-    setBioSettingsVisible,
+    openBioSettings,
+    theme,
   ]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([fetchLinks(), fetchFolders(), fetchProfile()]);
     setRefreshing(false);
+  };
+
+  const onCheckBrokenLinks = async () => {
+    const result = await checkBrokenLinks();
+    if (!result) return;
+
+    const { checked, brokenCount } = result;
+    if (checked === 0) {
+      showAlert("Bakım", "Kontrol edilecek bağlantı bulunamadı.");
+    } else if (brokenCount === 0) {
+      showAlert("Bakım", `${checked} bağlantı kontrol edildi. Hepsi erişilebilir durumda.`);
+    } else {
+      showAlert(
+        "Bakım",
+        `${checked} bağlantı kontrol edildi. ${brokenCount} tanesi artık erişilemiyor — kartlarda "Erişilemiyor" etiketiyle işaretlendi.`,
+      );
+    }
   };
 
   useFocusEffect(
@@ -383,101 +384,156 @@ export default function Index() {
     }, [isAuthenticated, fetchLinks, fetchFolders, fetchProfile, setLoading]),
   );
 
-  // Queries filtering
-  const filteredLinks = links.filter((link) => {
-    const matchesCategory =
-      selectedCategory === "All" || link.category === selectedCategory;
-
-    const matchesFolder =
-      selectedFolderId === null || link.folderId === selectedFolderId;
-
-    if (searchQuery.trim() === "") return matchesCategory && matchesFolder;
-
-    const query = searchQuery.toLocaleLowerCase("tr-TR");
-    const title = (link.title || "").toLocaleLowerCase("tr-TR");
-    const url = (link.url || "").toLocaleLowerCase("tr-TR");
-    const description = (link.description || "").toLocaleLowerCase("tr-TR");
-
-    const matchesSearch =
-      title.includes(query) ||
-      url.includes(query) ||
-      description.includes(query);
-
-    return matchesCategory && matchesFolder && matchesSearch;
-  });
-
   const currentFolder = selectedFolderId
     ? folders.find((f) => f._id === selectedFolderId)
     : null;
 
+  const filteredLinks = useMemo(
+    () =>
+      filterLinks(links, {
+        searchQuery,
+        selectedCategory,
+        selectedFolderId,
+      }),
+    [links, searchQuery, selectedCategory, selectedFolderId],
+  );
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    selectedCategory !== "All" ||
+    selectedFolderId !== null;
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setSelectedCategory("All");
+    setSelectedFolderId(null);
+  }, [setSelectedCategory]);
+
   const fetchError = linksError || foldersError || profileError;
+
+  const isPro = currentUser?.plan === "pro" || currentUser?.role === "admin";
 
   // Render Loader if authentication state is loading
   if (authLoading) {
     return (
       <View
-        style={[styles.center, { backgroundColor: "#0f0c20", marginTop: 0 }]}
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+        }}
       >
-        <ActivityIndicator size="large" color="#ffffff" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <HomeHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onClipboardPress={() => checkClipboard(true)}
+        totalCount={links.length}
+        visibleCount={filteredLinks.length}
+        activeCollectionName={currentFolder?.name}
       />
 
       {/* Plan & Quota Tracking Bar */}
       {currentUser && (
-        <View style={{
-          backgroundColor: '#ffffff',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: '#f0f0f0',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{
-              backgroundColor: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#FFF9C4' : '#F5F5F5',
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              borderRadius: 8,
-              marginRight: 8,
+        <View
+          style={{
+            backgroundColor: theme.colors.background,
+            paddingHorizontal: theme.spacing.md,
+            paddingBottom: theme.spacing.md,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 928,
+              alignSelf: "center",
+              backgroundColor: isPro
+                ? theme.app.warningContainer
+                : theme.colors.surface,
               borderWidth: 1,
-              borderColor: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#FBC02D' : '#E0E0E0'
-            }}>
-              <Text style={{
-                fontSize: 10,
-                fontWeight: '900',
-                color: (currentUser.plan === 'pro' || currentUser.role === 'admin') ? '#F57F17' : '#616161'
-              }}>
-                {currentUser.role === 'admin' ? '👑 ADMIN' : currentUser.plan === 'pro' ? '👑 PRO ÜYE' : '🆓 FREE ÜYE'}
+              borderColor: isPro
+                ? theme.app.warning
+                : theme.colors.outlineVariant,
+              borderRadius: theme.radius.md,
+              paddingHorizontal: theme.spacing.sm + 2,
+              paddingVertical: theme.spacing.sm,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flex: 1, marginRight: theme.spacing.md }}>
+              <Text
+                variant="labelMedium"
+                style={{
+                  color: isPro
+                    ? theme.app.onWarningContainer
+                    : theme.colors.onSurface,
+                  fontFamily: theme.fontFamily.semibold,
+                }}
+              >
+                {currentUser.role === "admin"
+                  ? "Yönetici hesabı"
+                  : isPro
+                    ? "Pro arşiv etkin"
+                    : `${links.length} / 30 bağlantı`}
               </Text>
+              {!isPro && (
+                <View
+                  style={{
+                    height: 4,
+                    maxWidth: 220,
+                    marginTop: 6,
+                    overflow: "hidden",
+                    borderRadius: 2,
+                    backgroundColor: theme.colors.surfaceVariant,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: `${Math.min((links.length / 30) * 100, 100)}%`,
+                      height: "100%",
+                      backgroundColor: theme.colors.primary,
+                    }}
+                  />
+                </View>
+              )}
             </View>
-            {(currentUser.plan !== 'pro' && currentUser.role !== 'admin') && (
-              <Text style={{ fontSize: 12, color: '#616161', fontWeight: '500' }}>
-                Kota: {links.length} / 30 Link
+            {!isPro ? (
+              <TouchableOpacity
+                onPress={() => setPaywallVisible(true)}
+                accessibilityRole="button"
+                style={{ minHeight: 40, justifyContent: "center" }}
+              >
+                <Text
+                  variant="labelLarge"
+                  style={{
+                    color: theme.colors.primary,
+                    fontFamily: theme.fontFamily.semibold,
+                  }}
+                >
+                  Pro'ya geç
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <Text
+                variant="labelMedium"
+                style={{
+                  color: theme.app.onWarningContainer,
+                  fontFamily: theme.fontFamily.semibold,
+                }}
+              >
+                Sınırsız
               </Text>
             )}
           </View>
-          {(currentUser.plan !== 'pro' && currentUser.role !== 'admin') ? (
-            <TouchableOpacity onPress={() => setPaywallVisible(true)}>
-              <Text style={{ fontSize: 12, color: '#6C63FF', fontWeight: 'bold' }}>
-                Sınırları Kaldır ⚡
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={{ fontSize: 12, color: '#4CAF50', fontWeight: 'bold' }}>
-              Sınırsız Arşiv Aktif ✨
-            </Text>
-          )}
         </View>
       )}
 
@@ -486,6 +542,8 @@ export default function Index() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         onManageCategories={() => setManageCategoriesVisible(true)}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
       />
 
       <FolderList
@@ -496,45 +554,47 @@ export default function Index() {
         onCreateFolder={() => {
           setEditingFolder(null);
           setFolderName("");
-          setFolderColor("#6200ee");
+          setFolderColor(theme.colors.primary);
           setFolderIcon("folder");
           setFolderIsPublic(false);
           setFolderFormVisible(true);
         }}
         currentUser={currentUser}
-        theme={theme}
       />
 
       {/* Connection error banner */}
       {fetchError && (
-        <View style={styles.connectionErrorBanner}>
-          <IconButton
-            icon="wifi-strength-1-alert"
-            iconColor="#d32f2f"
-            size={24}
-            style={{ margin: 0 }}
-          />
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text
-              variant="titleSmall"
-              style={{ fontWeight: "bold", color: "#d32f2f" }}
-            >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.colors.errorContainer,
+            borderColor: theme.colors.error,
+            borderWidth: 1,
+            borderRadius: theme.radius.md,
+            width: "92%",
+            maxWidth: 928,
+            alignSelf: "center",
+            marginTop: theme.spacing.sm + theme.spacing.xs,
+            marginBottom: theme.spacing.xs,
+            padding: theme.spacing.sm + 2,
+          }}
+        >
+          <Icon source="wifi-strength-alert-outline" color={theme.colors.error} size={22} />
+          <View style={{ flex: 1, marginLeft: theme.spacing.sm }}>
+            <Text variant="titleSmall" style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.onErrorContainer }}>
               Bağlantı Hatası
             </Text>
-            <Text
-              variant="bodySmall"
-              style={{ color: "#c62828", lineHeight: 16 }}
-            >
-              Sunucu uykuda olabilir (Render ücretsiz plan uyanması ~30-50 sn
-              sürebilir) veya internet bağlantınız kesilmiştir. Yenilemek için
-              lütfen ekranı aşağı kaydırın.
+            <Text variant="bodySmall" style={{ color: theme.colors.onErrorContainer, lineHeight: 16 }}>
+              Sunucuya ulaşılamadı. Bağlantını kontrol edip yeniden dene.
             </Text>
           </View>
           <IconButton
             icon="refresh"
-            iconColor="#d32f2f"
+            iconColor={theme.colors.error}
             size={22}
             onPress={onRefresh}
+            accessibilityLabel="Yeniden dene"
             style={{ margin: 0 }}
           />
         </View>
@@ -542,7 +602,18 @@ export default function Index() {
 
       {/* Collaboration Banner inside custom selected folder */}
       {currentFolder && (
-        <View style={styles.collaborationBanner}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: theme.app.accentContainer,
+            paddingHorizontal: theme.spacing.sm + theme.spacing.xs,
+            paddingVertical: theme.spacing.xs + 2,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.colors.outlineVariant,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <IconButton
@@ -551,14 +622,11 @@ export default function Index() {
                 size={20}
                 style={{ margin: 0, padding: 0 }}
               />
-              <Text
-                variant="titleMedium"
-                style={{ fontWeight: "bold", color: "#333" }}
-              >
+              <Text variant="titleMedium" style={{ fontFamily: theme.fontFamily.semibold, color: theme.app.onAccentContainer }}>
                 {currentFolder.name}
               </Text>
             </View>
-            <Text variant="bodySmall" style={{ color: "#666", marginLeft: 8 }}>
+            <Text variant="bodySmall" style={{ color: theme.app.onAccentContainer, opacity: 0.8, marginLeft: theme.spacing.sm }}>
               {currentFolder.owner?._id === currentUser?.id
                 ? "Klasör Sahibi: Sizsiniz"
                 : `Sahibi: @${currentFolder.owner?.username || "Bilinmiyor"}`}
@@ -567,38 +635,56 @@ export default function Index() {
 
           {/* Avatar stack display */}
           <TouchableOpacity
-            style={styles.avatarStack}
+            style={{ flexDirection: "row", alignItems: "center" }}
             onPress={() => setCollaborationModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Ortak çalışma ayarları"
           >
             {currentFolder.collaborators &&
               currentFolder.collaborators.slice(0, 3).map((col: any) => (
                 <View
                   key={col._id}
-                  style={[
-                    styles.avatarBubble,
-                    { backgroundColor: currentFolder.color || "#6200ee" },
-                  ]}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: theme.radius.full,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    marginLeft: -8,
+                    borderWidth: 1.5,
+                    borderColor: theme.colors.surface,
+                    backgroundColor: currentFolder.color || theme.colors.primary,
+                  }}
                 >
-                  <Text style={styles.avatarText}>
+                  <Text style={{ color: theme.app.onFolderColor, fontSize: 10, fontFamily: theme.fontFamily.bold }}>
                     {(col.username || "U").charAt(0).toUpperCase()}
                   </Text>
                 </View>
               ))}
-            {currentFolder.collaborators &&
-              currentFolder.collaborators.length > 3 && (
-                <View
-                  style={[styles.avatarBubble, { backgroundColor: "#666" }]}
-                >
-                  <Text style={styles.avatarText}>
-                    +{currentFolder.collaborators.length - 3}
-                  </Text>
-                </View>
-              )}
+            {currentFolder.collaborators && currentFolder.collaborators.length > 3 && (
+              <View
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: theme.radius.full,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginLeft: -8,
+                  borderWidth: 1.5,
+                  borderColor: theme.colors.surface,
+                  backgroundColor: theme.colors.onSurfaceVariant,
+                }}
+              >
+                <Text style={{ color: theme.app.onFolderColor, fontSize: 10, fontFamily: theme.fontFamily.bold }}>
+                  +{currentFolder.collaborators.length - 3}
+                </Text>
+              </View>
+            )}
             <IconButton
               icon="account-multiple-plus-outline"
               size={20}
-              iconColor="#6200ee"
-              style={{ margin: 0, marginLeft: 4 }}
+              iconColor={theme.app.accent}
+              style={{ margin: 0, marginLeft: theme.spacing.xs }}
             />
           </TouchableOpacity>
         </View>
@@ -613,14 +699,17 @@ export default function Index() {
           deletingAccount={deletingAccount}
           onDeleteAccount={requestAccountDeletion}
           onManageSubscription={() => manageStoreSubscription(currentUser)}
+          checkingBroken={checkingBroken}
+          onCheckBrokenLinks={onCheckBrokenLinks}
         />
 
         {/* Reorder Categories Dialog */}
         <Dialog
           visible={manageCategoriesVisible}
           onDismiss={() => setManageCategoriesVisible(false)}
+          style={{ borderRadius: theme.radius.lg }}
         >
-          <Dialog.Title>Reorder Categories</Dialog.Title>
+          <Dialog.Title>Kategorileri Sırala</Dialog.Title>
           <Dialog.Content>
             <ScrollView style={{ maxHeight: 300 }}>
               {categories.map((cat, index) => (
@@ -630,22 +719,24 @@ export default function Index() {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    marginBottom: 8,
+                    marginBottom: theme.spacing.sm,
                   }}
                 >
-                  <Text variant="bodyMedium">{cat}</Text>
+                  <Text variant="bodyMedium" style={{ color: theme.colors.onSurface }}>{cat}</Text>
                   {cat !== "All" && (
                     <View style={{ flexDirection: "row" }}>
                       <IconButton
                         icon="arrow-up"
                         size={20}
                         disabled={index <= 1}
+                        iconColor={theme.colors.onSurfaceVariant}
                         onPress={() => moveCategory(index, "up")}
                       />
                       <IconButton
                         icon="arrow-down"
                         size={20}
                         disabled={index >= categories.length - 1}
+                        iconColor={theme.colors.onSurfaceVariant}
                         onPress={() => moveCategory(index, "down")}
                       />
                     </View>
@@ -655,8 +746,8 @@ export default function Index() {
             </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setManageCategoriesVisible(false)}>
-              Done
+            <Button onPress={() => setManageCategoriesVisible(false)} textColor={theme.colors.onSurfaceVariant}>
+              Bitti
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -665,18 +756,13 @@ export default function Index() {
         <Dialog
           visible={manageFoldersVisible}
           onDismiss={() => setManageFoldersVisible(false)}
+          style={{ borderRadius: theme.radius.lg }}
         >
           <Dialog.Title>Klasörleri Yönet</Dialog.Title>
           <Dialog.Content>
             <ScrollView style={{ maxHeight: 300 }}>
               {folders.length === 0 ? (
-                <Text
-                  style={{
-                    textAlign: "center",
-                    marginVertical: 20,
-                    color: "#666",
-                  }}
-                >
+                <Text style={{ textAlign: "center", marginVertical: theme.spacing.lg, color: theme.colors.onSurfaceVariant }}>
                   Henüz klasör oluşturulmadı.
                 </Text>
               ) : (
@@ -691,74 +777,51 @@ export default function Index() {
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        marginBottom: 8,
-                        paddingVertical: 4,
-                        borderBottomWidth: 0.5,
-                        borderBottomColor: "#eee",
+                        marginBottom: theme.spacing.sm,
+                        paddingVertical: theme.spacing.xs,
+                        borderBottomWidth: 1,
+                        borderBottomColor: theme.colors.outlineVariant,
                       }}
                     >
-                      <View
-                        style={{ flexDirection: "row", alignItems: "center" }}
-                      >
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <IconButton
                           icon={folder.icon || "folder"}
                           size={20}
-                          iconColor="white"
-                          style={{
-                            backgroundColor: folder.color || "#6200ee",
-                            marginRight: 8,
-                            margin: 0,
-                          }}
+                          iconColor={theme.app.onFolderColor}
+                          style={{ backgroundColor: folder.color || theme.colors.primary, marginRight: theme.spacing.sm, margin: 0 }}
                         />
                         <View>
-                          <Text
-                            variant="bodyMedium"
-                            style={{ fontWeight: "bold" }}
-                          >
+                          <Text variant="bodyMedium" style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
                             {folder.name}
                           </Text>
                           {folder.isPublic && (
-                            <Text
-                              variant="labelSmall"
-                              style={{
-                                color: theme.colors.primary,
-                                fontWeight: "bold",
-                              }}
-                            >
-                              🌐 Herkese Açık
+                            <Text variant="labelSmall" style={{ color: theme.app.success, fontFamily: theme.fontFamily.semibold }}>
+                              Herkese Açık
                             </Text>
                           )}
                           {isCollaborated && (
-                            <Text
-                              variant="labelSmall"
-                              style={{ color: "#d32f2f", fontWeight: "bold" }}
-                            >
-                              👥 Ortak Çalışma (Sahibi: @
-                              {folder.owner?.username})
+                            <Text variant="labelSmall" style={{ color: theme.app.accent, fontFamily: theme.fontFamily.semibold }}>
+                              Ortak Çalışma (Sahibi: @{folder.owner?.username})
                             </Text>
                           )}
-                          {!isCollaborated &&
-                            folder.collaborators &&
-                            folder.collaborators.length > 0 && (
-                              <Text
-                                variant="labelSmall"
-                                style={{ color: "#2e7d32", fontWeight: "bold" }}
-                              >
-                                👥 Paylaşımlı ({folder.collaborators.length}{" "}
-                                ortak)
-                              </Text>
-                            )}
+                          {!isCollaborated && folder.collaborators && folder.collaborators.length > 0 && (
+                            <Text variant="labelSmall" style={{ color: theme.app.accent, fontFamily: theme.fontFamily.semibold }}>
+                              Paylaşımlı ({folder.collaborators.length} ortak)
+                            </Text>
+                          )}
                         </View>
                       </View>
                       <View style={{ flexDirection: "row" }}>
                         {isOwner && (
                           <IconButton
-                            icon="pencil"
+                            icon="pencil-outline"
                             size={20}
+                            iconColor={theme.colors.onSurfaceVariant}
+                            accessibilityLabel={`${folder.name} klasörünü düzenle`}
                             onPress={() => {
                               setEditingFolder(folder);
                               setFolderName(folder.name);
-                              setFolderColor(folder.color || "#6200ee");
+                              setFolderColor(folder.color || theme.colors.primary);
                               setFolderIcon(folder.icon || "folder");
                               setFolderIsPublic(folder.isPublic || false);
                               setFolderFormVisible(true);
@@ -767,16 +830,18 @@ export default function Index() {
                         )}
                         {isOwner ? (
                           <IconButton
-                            icon="delete"
+                            icon="delete-outline"
                             size={20}
-                            iconColor="#d32f2f"
+                            iconColor={theme.colors.error}
+                            accessibilityLabel={`${folder.name} klasörünü sil`}
                             onPress={() => handleDeleteFolder(folder._id)}
                           />
                         ) : (
                           <IconButton
                             icon="logout"
                             size={20}
-                            iconColor="#d32f2f"
+                            iconColor={theme.colors.error}
+                            accessibilityLabel={`${folder.name} klasöründen ayrıl`}
                             onPress={() => {
                               setSelectedFolderId(folder._id);
                               setCollaborationModalVisible(true);
@@ -790,24 +855,23 @@ export default function Index() {
                 })
               )}
             </ScrollView>
-            <Button
-              mode="contained"
+            <PrimaryButton
               icon="plus"
               onPress={() => {
                 setEditingFolder(null);
                 setFolderName("");
-                setFolderColor("#6200ee");
+                setFolderColor(theme.colors.primary);
                 setFolderIcon("folder");
                 setFolderIsPublic(false);
                 setFolderFormVisible(true);
               }}
-              style={{ marginTop: 16 }}
+              style={{ marginTop: theme.spacing.md }}
             >
               Yeni Klasör Ekle
-            </Button>
+            </PrimaryButton>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setManageFoldersVisible(false)}>
+            <Button onPress={() => setManageFoldersVisible(false)} textColor={theme.colors.onSurfaceVariant}>
               Kapat
             </Button>
           </Dialog.Actions>
@@ -832,7 +896,7 @@ export default function Index() {
         {/* Bio Page Settings Dialog */}
         <BioSettingsDialog
           visible={bioSettingsVisible}
-          onDismiss={() => setBioSettingsVisible(false)}
+          onDismiss={closeBioSettings}
           profileName={profileName}
           setProfileName={setProfileName}
           profileBio={profileBio}
@@ -843,7 +907,6 @@ export default function Index() {
           setProfileTheme={setProfileTheme}
           savingProfile={savingProfile}
           onSave={handleSaveProfile}
-          theme={theme}
         />
 
         {/* Folder Collaboration Settings Dialog */}
@@ -901,13 +964,41 @@ export default function Index() {
           setReminderDialogVisible(true);
         }}
         reminders={reminders}
-        listStyle={styles.list}
-        centerStyle={styles.center}
+        listStyle={{
+          width: "100%",
+          maxWidth: 960,
+          alignSelf: "center",
+          paddingTop: theme.spacing.sm,
+          paddingBottom: 88,
+        }}
+        centerStyle={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: theme.spacing.lg,
+          marginTop: theme.spacing.xl,
+        }}
+        isAuthenticated={isAuthenticated}
+        onSignIn={() => router.push("/auth")}
+        viewMode={viewMode}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
       />
 
       <FAB
         icon="plus"
-        style={styles.fab}
+        style={{
+          position: "absolute",
+          margin: theme.spacing.md,
+          right: 0,
+          bottom: 0,
+          zIndex: 10,
+          borderRadius: theme.radius.lg,
+        }}
+        color={theme.colors.onPrimary}
+        customSize={56}
+        theme={{ colors: { primaryContainer: theme.colors.primary } }}
+        accessibilityLabel="Yeni bağlantı ekle"
         onPress={() => {
           if (!isAuthenticated) {
             router.push("/auth");
@@ -927,75 +1018,7 @@ export default function Index() {
         savingClipboard={savingClipboard}
         onSave={handleSaveClipboard}
         onDismiss={handleDismissClipboard}
-        theme={theme}
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f6f6f6",
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    marginTop: 100,
-  },
-  list: {
-    paddingTop: 8,
-    paddingBottom: 80,
-  },
-  fab: {
-    position: "absolute",
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-  },
-  collaborationBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#e8e5fa",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: "#dcd6f7",
-  },
-  avatarStack: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatarBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: -8,
-    borderWidth: 1.5,
-    borderColor: "#fff",
-    elevation: 1,
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  connectionErrorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffebee",
-    borderColor: "#ffcdd2",
-    borderWidth: 1,
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    padding: 10,
-  },
-});

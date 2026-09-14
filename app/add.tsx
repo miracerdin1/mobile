@@ -1,21 +1,31 @@
-import api from "../services/api";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Chip, HelperText, Text, TextInput, useTheme, Switch } from "react-native-paper";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Platform, ScrollView, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import Config from "../constants/Config";
-import { getStoredToken } from "../services/authStorage";
+import { HelperText, IconButton, Switch, Text, TextInput } from "react-native-paper";
+
 import { PaywallModal } from "../components/PaywallModal";
+import PrimaryButton from "../components/PrimaryButton";
+import FolderChip from "../components/FolderChip";
+import Config from "../constants/Config";
+import { useAppTheme } from "../hooks/useAppTheme";
+import api from "../services/api";
+import type { DuplicateLink } from "../types/addLink";
+import { extractHttpUrl, normalizeHttpUrl } from "../utils/url";
+import { showAlert } from "../utils/alert";
 
 export default function AddLink() {
   const router = useRouter();
-  const theme = useTheme();
-  const [url, setUrl] = useState("");
+  const sharedLinkParams = useLocalSearchParams();
+  const theme = useAppTheme();
+  const sharedUrl = extractHttpUrl(
+    sharedLinkParams.url ?? sharedLinkParams.text,
+  );
+  const [url, setUrl] = useState(sharedUrl ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isPublic, setIsPublic] = useState(false);
-  
+
   // Folders State
   const [folders, setFolders] = useState<any[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -24,20 +34,46 @@ export default function AddLink() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [paywallReason, setPaywallReason] = useState("");
 
+  // Duplicate-link detection (non-blocking — informational only)
+  const [duplicateLink, setDuplicateLink] = useState<DuplicateLink | null>(null);
+  const duplicateCheckSeq = useRef(0);
+
   useEffect(() => {
-    const init = async () => {
-      try {
-        const token = await getStoredToken();
-        if (token) {
-          
-        }
-        await fetchFolders();
-      } catch (err) {
-        console.error("Initialization error in AddLink:", err);
-      }
-    };
-    init();
+    if (!sharedUrl) return;
+
+    setUrl((currentUrl) => currentUrl || sharedUrl);
+    if (Platform.OS === "web") router.replace("/add");
+  }, [router, sharedUrl]);
+
+  useEffect(() => {
+    fetchFolders();
   }, []);
+
+  // Debounced duplicate check as the user types/pastes a URL.
+  useEffect(() => {
+    const seq = ++duplicateCheckSeq.current;
+    const normalizedUrl = normalizeHttpUrl(url);
+    if (!normalizedUrl) {
+      setDuplicateLink(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.post(
+          `${Config.API_URL}/api/links/check-duplicate`,
+          { url: normalizedUrl },
+        );
+        if (duplicateCheckSeq.current !== seq) return; // a newer keystroke superseded this check
+        setDuplicateLink(response.data?.duplicate ? response.data.link : null);
+      } catch {
+        // Non-critical — silently skip the hint rather than interrupt the flow.
+        if (duplicateCheckSeq.current === seq) setDuplicateLink(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [url]);
 
   const fetchFolders = async () => {
     try {
@@ -49,32 +85,29 @@ export default function AddLink() {
   };
 
   const handleAdd = async () => {
-    if (!url) {
-      setError("URL cannot be empty");
+    const normalizedUrl = extractHttpUrl(url);
+    if (!normalizedUrl) {
+      setError("Lütfen geçerli bir URL girin (örn. https://google.com)");
       return;
     }
 
-    // Simple URL validation
-    const urlPattern =
-      /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?(\?.*)?$/;
-    if (!urlPattern.test(url)) {
-      setError("Please enter a valid URL (e.g. https://google.com)");
-      return;
-    }
-
+    setUrl(normalizedUrl);
     setLoading(true);
     setError("");
 
     try {
-      console.log(`Sending request to: ${Config.API_URL}/api/links`);
-      const response = await api.post(`${Config.API_URL}/api/links`, {
-        url,
+      await api.post(`${Config.API_URL}/api/links`, {
+        url: normalizedUrl,
         folderId: selectedFolderId,
         isPublic,
       });
-      console.log("Response:", response.data);
 
-      Alert.alert("Başarılı", "Link başarıyla eklendi!");
+      showAlert("Başarılı", "Link başarıyla eklendi!");
+      if (Platform.OS === "web") {
+        router.replace("/");
+        return;
+      }
+
       router.back();
     } catch (err: any) {
       console.error("Add Link Error:", err);
@@ -82,7 +115,7 @@ export default function AddLink() {
         setPaywallReason(err.response?.data?.message || "Limit aşımı! Lütfen Pro plana yükseltin.");
         setPaywallVisible(true);
       } else {
-        Alert.alert("Hata", `Link eklenemedi. ${err.response?.data?.error || err.message}`);
+        showAlert("Hata", `Link eklenemedi. ${err.response?.data?.error || err.message}`);
       }
     } finally {
       setLoading(false);
@@ -90,7 +123,7 @@ export default function AddLink() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, padding: theme.spacing.md, backgroundColor: theme.colors.background }}>
       <TextInput
         label="Kaydedilecek URL"
         value={url}
@@ -102,23 +135,32 @@ export default function AddLink() {
         autoCapitalize="none"
         keyboardType="url"
         error={!!error}
-        style={{ marginBottom: 4 }}
+        outlineColor={theme.colors.outlineVariant}
+        activeOutlineColor={theme.colors.primary}
+        style={{ marginBottom: theme.spacing.xs }}
         right={
           <TextInput.Icon
             icon="content-paste"
+            accessibilityLabel="Panodan yapıştır"
             onPress={async () => {
               try {
                 const hasString = await Clipboard.hasStringAsync();
                 if (hasString) {
                   const content = await Clipboard.getStringAsync();
-                  setUrl(content);
+                  const clipboardUrl = extractHttpUrl(content);
+                  if (!clipboardUrl) {
+                    showAlert("Bilgi", "Panonuzda geçerli bir bağlantı bulunamadı.");
+                    return;
+                  }
+
+                  setUrl(clipboardUrl);
                   setError("");
                 } else {
-                  Alert.alert("Bilgi", "Panonuz boş veya bir metin içermiyor.");
+                  showAlert("Bilgi", "Panonuz boş veya bir metin içermiyor.");
                 }
               } catch (err) {
                 console.error("Paste error:", err);
-                Alert.alert("Hata", "Panodan veri yapıştırılamadı.");
+                showAlert("Hata", "Panodan veri yapıştırılamadı.");
               }
             }}
           />
@@ -128,64 +170,70 @@ export default function AddLink() {
         {error}
       </HelperText>
 
-      <Text variant="titleMedium" style={styles.sectionTitle}>Klasöre Ekle (İsteğe Bağlı)</Text>
-      <View style={styles.folderContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
-          <Chip
+      {duplicateLink && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.colors.surfaceVariant,
+            borderRadius: theme.radius.md,
+            padding: theme.spacing.sm,
+            marginBottom: theme.spacing.md,
+          }}
+        >
+          <IconButton icon="content-duplicate" size={18} iconColor={theme.colors.onSurfaceVariant} style={{ margin: 0 }} />
+          <Text
+            variant="bodySmall"
+            numberOfLines={2}
+            style={{ flex: 1, color: theme.colors.onSurfaceVariant, marginLeft: theme.spacing.xs }}
+          >
+            Bu bağlantı zaten kayıtlı: {duplicateLink.title || duplicateLink.url}
+          </Text>
+        </View>
+      )}
+
+      <Text
+        variant="titleMedium"
+        style={{ fontFamily: theme.fontFamily.semibold, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm, color: theme.colors.onSurface }}
+      >
+        Klasöre Ekle (İsteğe Bağlı)
+      </Text>
+      <View style={{ marginBottom: theme.spacing.lg, height: 48 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: theme.spacing.xs }}>
+          <FolderChip
+            label="Klasör Yok"
+            icon="folder-off-outline"
             selected={selectedFolderId === null}
             onPress={() => setSelectedFolderId(null)}
-            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
-            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
-            showSelectedOverlay
-            icon="folder-open"
-          >
-            Klasör Yok
-          </Chip>
+          />
           {folders.map((f) => (
-            <Chip
+            <FolderChip
               key={f._id}
+              label={f.name}
+              icon={f.icon || "folder"}
+              color={f.color}
               selected={selectedFolderId === f._id}
               onPress={() => setSelectedFolderId(f._id)}
-              style={{
-                marginRight: 8,
-                backgroundColor: selectedFolderId === f._id ? f.color : "#f5f5f5",
-                borderColor: f.color,
-                borderWidth: selectedFolderId === f._id ? 0 : 1,
-              }}
-              textStyle={{
-                color: selectedFolderId === f._id ? "#fff" : "#333",
-                fontWeight: selectedFolderId === f._id ? "bold" : "normal"
-              }}
-              showSelectedOverlay
-              icon={f.icon || "folder"}
-            >
-              {f.name}
-            </Chip>
+            />
           ))}
         </ScrollView>
       </View>
 
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text variant="labelLarge" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
-          <Text variant="bodySmall" style={{ color: "#666" }}>Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: theme.spacing.xl }}>
+        <View style={{ flex: 1, marginRight: theme.spacing.sm }}>
+          <Text variant="labelLarge" style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
+            Herkese Açık
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.
+          </Text>
         </View>
-        <Switch
-          value={isPublic}
-          onValueChange={setIsPublic}
-          color={theme.colors.primary}
-        />
+        <Switch value={isPublic} onValueChange={setIsPublic} color={theme.colors.primary} />
       </View>
 
-      <Button
-        mode="contained"
-        onPress={handleAdd}
-        loading={loading}
-        disabled={loading}
-        style={styles.button}
-      >
-        Linki Kaydet
-      </Button>
+      <PrimaryButton onPress={handleAdd} loading={loading} disabled={loading}>
+        {duplicateLink ? "Yine de Kaydet" : "Linki Kaydet"}
+      </PrimaryButton>
 
       <PaywallModal
         visible={paywallVisible}
@@ -195,25 +243,3 @@ export default function AddLink() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: "#fff",
-  },
-  sectionTitle: {
-    fontWeight: "bold",
-    marginTop: 8,
-    marginBottom: 8,
-    color: "#333",
-  },
-  folderContainer: {
-    marginBottom: 24,
-    height: 48,
-  },
-  button: {
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-});
