@@ -101,8 +101,6 @@ export async function scheduleLocalNotification(
       const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?\n\nLink: ${link.url}`;
       if (onWebNotificationTrigger) {
         onWebNotificationTrigger(message, link.url);
-      } else {
-        console.log(`[Web Virtual Reminder Triggered] ${message}`);
       }
     }, delaySeconds * 1000);
     

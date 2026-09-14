@@ -1,14 +1,9 @@
 import React from "react";
-import { ScrollView, View } from "react-native";
-import {
-  Dialog,
-  TextInput,
-  Text,
-  Switch,
-  IconButton,
-  Button,
-} from "react-native-paper";
+import { Pressable, ScrollView, View } from "react-native";
+import { Button, Dialog, IconButton, Switch, Text, TextInput } from "react-native-paper";
+
 import { FOLDER_COLORS, FOLDER_ICONS } from "../constants";
+import { useAppTheme } from "../hooks/useAppTheme";
 import { FolderFormDialogProps } from "../types";
 
 export default function FolderFormDialog({
@@ -25,8 +20,10 @@ export default function FolderFormDialog({
   setFolderIsPublic,
   onSave,
 }: FolderFormDialogProps) {
+  const theme = useAppTheme();
+
   return (
-    <Dialog visible={visible} onDismiss={onDismiss}>
+    <Dialog visible={visible} onDismiss={onDismiss} style={{ borderRadius: theme.radius.lg }}>
       <Dialog.Title>
         {editingFolder ? "Klasörü Düzenle" : "Yeni Klasör Ekle"}
       </Dialog.Title>
@@ -36,7 +33,9 @@ export default function FolderFormDialog({
           value={folderName}
           onChangeText={setFolderName}
           mode="outlined"
-          style={{ marginBottom: 16 }}
+          outlineColor={theme.colors.outlineVariant}
+          activeOutlineColor={theme.colors.primary}
+          style={{ marginBottom: theme.spacing.md }}
         />
 
         <View
@@ -44,14 +43,20 @@ export default function FolderFormDialog({
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 16,
+            marginBottom: theme.spacing.md,
           }}
         >
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text variant="labelLarge" style={{ fontWeight: "bold" }}>
-              🌐 Herkese Açık Yap
+          <IconButton
+            icon="earth"
+            size={20}
+            iconColor={theme.colors.onSurfaceVariant}
+            style={{ margin: 0, marginRight: theme.spacing.xs }}
+          />
+          <View style={{ flex: 1, marginRight: theme.spacing.sm }}>
+            <Text variant="labelLarge" style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
+              Herkese Açık Yap
             </Text>
-            <Text variant="bodySmall" style={{ color: "#666" }}>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
               Bu seçeneği açarak klasörünüzü ve içindeki linkleri Bio sayfanızda
               herkesle paylaşabilirsiniz.
             </Text>
@@ -59,65 +64,90 @@ export default function FolderFormDialog({
           <Switch
             value={folderIsPublic}
             onValueChange={setFolderIsPublic}
-            color={folderColor}
+            color={folderColor || theme.colors.primary}
           />
         </View>
 
-        <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>
+        <Text variant="labelLarge" style={{ marginBottom: theme.spacing.sm, fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
           Renk Seçin
         </Text>
         <View
           style={{
             flexDirection: "row",
             flexWrap: "wrap",
-            marginBottom: 16,
-            justifyContent: "space-between",
+            marginBottom: theme.spacing.md,
           }}
         >
-          {FOLDER_COLORS.map((c) => (
-            <View
-              key={c}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: c,
-                margin: 4,
-                borderWidth: folderColor === c ? 3 : 0,
-                borderColor: "#333",
-              }}
-              onTouchEnd={() => setFolderColor(c)}
-            />
-          ))}
+          {FOLDER_COLORS.map((c) => {
+            const selected = folderColor === c;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => setFolderColor(c)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Renk ${c}`}
+                hitSlop={8}
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <View
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: theme.radius.full,
+                    backgroundColor: c,
+                    borderWidth: selected ? 3 : 0,
+                    borderColor: theme.colors.onSurface,
+                  }}
+                />
+              </Pressable>
+            );
+          })}
         </View>
 
-        <Text variant="labelLarge" style={{ marginBottom: 8, fontWeight: "bold" }}>
+        <Text variant="labelLarge" style={{ marginBottom: theme.spacing.sm, fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
           İkon Seçin
         </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 8 }}
+          style={{ marginBottom: theme.spacing.sm }}
         >
-          {FOLDER_ICONS.map((i) => (
-            <IconButton
-              key={i}
-              icon={i}
-              size={24}
-              selected={folderIcon === i}
-              onPress={() => setFolderIcon(i)}
-              iconColor={folderIcon === i ? "white" : "#666"}
-              style={{
-                backgroundColor: folderIcon === i ? folderColor : "#f0f0f0",
-                marginRight: 8,
-              }}
-            />
-          ))}
+          {FOLDER_ICONS.map((i) => {
+            const selected = folderIcon === i;
+            return (
+              <IconButton
+                key={i}
+                icon={i}
+                size={24}
+                selected={selected}
+                onPress={() => setFolderIcon(i)}
+                accessibilityLabel={`İkon ${i}`}
+                iconColor={selected ? theme.app.onFolderColor : theme.colors.onSurfaceVariant}
+                style={{
+                  backgroundColor: selected ? folderColor || theme.colors.primary : theme.colors.surfaceVariant,
+                  marginRight: theme.spacing.sm,
+                }}
+              />
+            );
+          })}
         </ScrollView>
       </Dialog.Content>
       <Dialog.Actions>
-        <Button onPress={onDismiss}>İptal</Button>
-        <Button mode="contained" onPress={onSave}>
+        <Button onPress={onDismiss} textColor={theme.colors.onSurfaceVariant}>
+          İptal
+        </Button>
+        <Button
+          mode="contained"
+          onPress={onSave}
+          buttonColor={theme.colors.primary}
+          textColor={theme.colors.onPrimary}
+        >
           Kaydet
         </Button>
       </Dialog.Actions>

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Button, Portal, Text } from "react-native-paper";
+import { Alert, Modal, TouchableOpacity, View } from "react-native";
+import { Button, IconButton, Portal, Text } from "react-native-paper";
+
 import { useAuth } from "../context/AuthContext";
+import { useAppTheme } from "../hooks/useAppTheme";
+import PrimaryButton from "./PrimaryButton";
 import {
   DEFAULT_STORE_PLAN_OPTIONS,
   getStoreBillingErrorMessage,
@@ -13,12 +16,28 @@ import {
 } from "../services/storeBilling";
 import { PaywallModalProps, StorePlan, StorePlanOption } from "../types/payment";
 
+const FEATURES = [
+  {
+    title: "Sınırsız Link & Klasör",
+    desc: "Limitlere takılmadan arşivleyin.",
+  },
+  {
+    title: "Gelişmiş Ortak Çalışma",
+    desc: "Klasörlerinize sınırsız editör ekleyin.",
+  },
+  {
+    title: "Premium Profil Temaları",
+    desc: "Kamu profiliniz için özel tasarımlar.",
+  },
+];
+
 export const PaywallModal: React.FC<PaywallModalProps> = ({
   visible,
   onClose,
   reason,
 }) => {
   const { user, updateUser } = useAuth();
+  const theme = useAppTheme();
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<StorePlan>("yearly");
@@ -111,110 +130,179 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
         animationType="slide"
         onRequestClose={onClose}
       >
-        <View style={styles.overlay}>
-          <View style={styles.container}>
-            <View style={styles.header}>
-              <View style={styles.crownContainer}>
-                <Text style={styles.crownIcon}>PRO</Text>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: theme.colors.backdrop,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: theme.spacing.lg,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.surface,
+              borderRadius: theme.radius.xl,
+              padding: theme.spacing.lg,
+              width: "100%",
+              maxWidth: 380,
+              elevation: 8,
+              shadowColor: theme.colors.shadow,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+            }}
+          >
+            <View style={{ alignItems: "center", marginBottom: theme.spacing.lg }}>
+              <View
+                style={{
+                  backgroundColor: theme.app.warningContainer,
+                  minWidth: 60,
+                  height: 60,
+                  borderRadius: theme.radius.full,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginBottom: theme.spacing.sm + theme.spacing.xs,
+                  borderWidth: 1,
+                  borderColor: theme.app.warning,
+                  paddingHorizontal: theme.spacing.sm + theme.spacing.xs,
+                }}
+              >
+                <Text style={{ color: theme.app.onWarningContainer, fontSize: 15, fontFamily: theme.fontFamily.bold, letterSpacing: 0.5 }}>
+                  PRO
+                </Text>
               </View>
-              <Text style={styles.title}>LINKFLOW PRO</Text>
-              {reason && <Text style={styles.reason}>{reason}</Text>}
-              <Text style={styles.subtitle}>
+              <Text style={{ fontSize: 22, fontFamily: theme.fontFamily.bold, color: theme.colors.onSurface, letterSpacing: 0.5 }}>
+                LINKFLOW PRO
+              </Text>
+              {reason && (
+                <Text
+                  style={{
+                    backgroundColor: theme.colors.errorContainer,
+                    color: theme.colors.onErrorContainer,
+                    fontFamily: theme.fontFamily.semibold,
+                    fontSize: 14,
+                    paddingHorizontal: theme.spacing.sm + theme.spacing.xs,
+                    paddingVertical: theme.spacing.xs,
+                    borderRadius: theme.radius.md,
+                    marginTop: theme.spacing.sm,
+                    textAlign: "center",
+                  }}
+                >
+                  {reason}
+                </Text>
+              )}
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13, marginTop: theme.spacing.xs + 2, textAlign: "center" }}>
                 Sınırları kaldırın ve profesyonel olun.
               </Text>
             </View>
 
-            <View style={styles.features}>
-              <View style={styles.featureItem}>
-                <Text style={styles.checkIcon}>✓</Text>
-                <View style={styles.featureTextContainer}>
-                  <Text style={styles.featureTitle}>Sınırsız Link & Klasör</Text>
-                  <Text style={styles.featureDesc}>
-                    Limitlere takılmadan arşivleyin.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.featureItem}>
-                <Text style={styles.checkIcon}>✓</Text>
-                <View style={styles.featureTextContainer}>
-                  <Text style={styles.featureTitle}>Gelişmiş Ortak Çalışma</Text>
-                  <Text style={styles.featureDesc}>
-                    Klasörlerinize sınırsız editör ekleyin.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.featureItem}>
-                <Text style={styles.checkIcon}>✓</Text>
-                <View style={styles.featureTextContainer}>
-                  <Text style={styles.featureTitle}>Premium Profil Temaları</Text>
-                  <Text style={styles.featureDesc}>
-                    Kamu profiliniz için özel tasarımlar.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.plansContainer}>
-              {planOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.plan}
-                  style={[
-                    styles.planCard,
-                    selectedPlan === option.plan && styles.selectedPlanCard,
-                    {
-                      borderColor:
-                        selectedPlan === option.plan ? "#6C63FF" : "#E0E0E0",
-                    },
-                  ]}
-                  onPress={() => setSelectedPlan(option.plan)}
-                >
-                  {option.badge && (
-                    <View style={styles.badgeContainer}>
-                      <Text style={styles.badgeText}>{option.badge}</Text>
-                    </View>
-                  )}
-                  <View style={styles.planRadioRow}>
-                    <View
-                      style={[
-                        styles.radioButton,
-                        selectedPlan === option.plan && styles.radioButtonChecked,
-                      ]}
-                    />
-                    <Text style={styles.planTitle}>{option.title}</Text>
+            <View style={{ marginBottom: theme.spacing.lg }}>
+              {FEATURES.map((feature) => (
+                <View key={feature.title} style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.sm + theme.spacing.xs }}>
+                  <IconButton
+                    icon="check-circle"
+                    size={20}
+                    iconColor={theme.app.success}
+                    style={{ margin: 0, marginRight: theme.spacing.xs }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
+                      {feature.title}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.onSurfaceVariant }}>{feature.desc}</Text>
                   </View>
-                  <Text style={styles.planPrice}>
-                    {option.price}{" "}
-                    <Text style={styles.planPeriod}>{option.period}</Text>
-                  </Text>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
 
-            <Button
-              mode="contained"
+            <View style={{ marginBottom: theme.spacing.lg }}>
+              {planOptions.map((option) => {
+                const selected = selectedPlan === option.plan;
+                return (
+                  <TouchableOpacity
+                    key={option.plan}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    style={{
+                      borderWidth: selected ? 2 : 1.5,
+                      borderRadius: theme.radius.lg,
+                      padding: theme.spacing.md,
+                      marginBottom: theme.spacing.sm + theme.spacing.xs,
+                      position: "relative",
+                      backgroundColor: selected ? theme.colors.primaryContainer : theme.colors.surfaceVariant,
+                      borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant,
+                    }}
+                    onPress={() => setSelectedPlan(option.plan)}
+                  >
+                    {option.badge && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: -10,
+                          right: 12,
+                          backgroundColor: theme.app.warning,
+                          paddingHorizontal: theme.spacing.xs + 2,
+                          paddingVertical: 2,
+                          borderRadius: theme.radius.sm,
+                        }}
+                      >
+                        <Text style={{ fontSize: 9, fontFamily: theme.fontFamily.bold, color: theme.app.onWarningContainer }}>
+                          {option.badge}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.xs }}>
+                      <View
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: theme.radius.full,
+                          borderWidth: 1.5,
+                          borderColor: selected ? theme.colors.primary : theme.colors.outline,
+                          backgroundColor: selected ? theme.colors.primary : "transparent",
+                          marginRight: theme.spacing.sm,
+                        }}
+                      />
+                      <Text style={{ fontSize: 14, fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
+                        {option.title}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 18, fontFamily: theme.fontFamily.bold, color: theme.colors.onSurface, marginLeft: theme.spacing.lg }}>
+                      {option.price}{" "}
+                      <Text style={{ fontSize: 12, fontFamily: theme.fontFamily.regular, color: theme.colors.onSurfaceVariant }}>
+                        {option.period}
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <PrimaryButton
               onPress={handleSubscribe}
               loading={loading}
               disabled={loading || restoring}
-              style={styles.subscribeBtn}
-              labelStyle={styles.subscribeBtnLabel}
+              style={{ paddingVertical: theme.spacing.xs - 2, marginBottom: theme.spacing.sm + 2 }}
+              labelStyle={{ fontSize: 16, fontFamily: theme.fontFamily.bold }}
             >
               {loading ? "İşlem Yapılıyor..." : "Şimdi Pro'ya Geç"}
-            </Button>
+            </PrimaryButton>
 
             <TouchableOpacity
               onPress={handleRestore}
-              style={styles.restoreBtn}
+              style={{ alignItems: "center", paddingVertical: theme.spacing.sm }}
               disabled={loading || restoring}
             >
-              <Text style={styles.restoreBtnText}>
+              <Text style={{ color: theme.colors.primary, fontSize: 13, fontFamily: theme.fontFamily.semibold }}>
                 {restoring ? "Geri Yükleniyor..." : "Satın Alımı Geri Yükle"}
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>Daha Sonra</Text>
+            <TouchableOpacity onPress={onClose} style={{ alignItems: "center", paddingVertical: theme.spacing.xs + 2 }}>
+              <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 13, fontFamily: theme.fontFamily.medium }}>
+                Daha Sonra
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -222,190 +310,3 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
     </Portal>
   );
 };
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  container: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
-    width: "100%",
-    maxWidth: 380,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  crownContainer: {
-    backgroundColor: "#FFF9C4",
-    minWidth: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#FBC02D",
-    paddingHorizontal: 12,
-  },
-  crownIcon: {
-    color: "#F57F17",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1A1A1A",
-    letterSpacing: 1.2,
-  },
-  reason: {
-    backgroundColor: "#FFEBEE",
-    color: "#C62828",
-    fontWeight: "600",
-    fontSize: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    color: "#757575",
-    fontSize: 13,
-    marginTop: 6,
-    textAlign: "center",
-  },
-  features: {
-    marginBottom: 20,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  checkIcon: {
-    color: "#2E7D32",
-    fontSize: 18,
-    fontWeight: "900",
-    marginRight: 12,
-    width: 22,
-    textAlign: "center",
-  },
-  featureTextContainer: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#212121",
-  },
-  featureDesc: {
-    fontSize: 12,
-    color: "#757575",
-  },
-  plansContainer: {
-    marginBottom: 20,
-  },
-  planCard: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    position: "relative",
-    backgroundColor: "#FAFAFA",
-  },
-  selectedPlanCard: {
-    backgroundColor: "#F5F4FF",
-    borderWidth: 2,
-  },
-  badgeContainer: {
-    position: "absolute",
-    top: -10,
-    right: 12,
-    backgroundColor: "#FFD700",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#FFA000",
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: "#5D4037",
-  },
-  planRadioRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  radioButton: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: "#757575",
-    marginRight: 8,
-  },
-  radioButtonChecked: {
-    backgroundColor: "#6C63FF",
-    borderColor: "#6C63FF",
-  },
-  planTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#212121",
-  },
-  planPrice: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#212121",
-    marginLeft: 24,
-  },
-  planPeriod: {
-    fontSize: 12,
-    fontWeight: "400",
-    color: "#757575",
-  },
-  subscribeBtn: {
-    backgroundColor: "#6C63FF",
-    borderRadius: 14,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  subscribeBtnLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-  restoreBtn: {
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  restoreBtnText: {
-    color: "#6C63FF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  closeBtn: {
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  closeBtnText: {
-    color: "#757575",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-});

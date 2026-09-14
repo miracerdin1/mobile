@@ -1,4 +1,5 @@
 import Config from "./Config";
+import type { VisualThemePreset } from "../types/visualTheme";
 
 export const API_URL = Config.API_URL;
 
@@ -35,29 +36,67 @@ export const FOLDER_ICONS = [
   "code-tags",
 ];
 
-export const THEME_PRESETS = [
+export const DEFAULT_VISUAL_THEME_ID = "purple-dark";
+
+export const THEME_PRESETS: VisualThemePreset[] = [
   {
     id: "purple-dark",
-    name: "Mor Karanlık",
-    bg: "#1f1c2c",
-    text: "#fff",
+    name: "Kobalt",
+    description: "Net ve dengeli",
+    primary: "#3157D5",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "#E1E8FF",
+    onPrimaryContainer: "#1C347F",
+    background: "#F5F7FB",
+    surface: "#FFFFFF",
+    text: "#162033",
+    muted: "#E9EDF5",
+    mutedText: "#667085",
+    border: "#DCE2EC",
   },
   {
     id: "sunset",
-    name: "Günbatımı",
-    bg: "#ff5e62",
-    text: "#fff",
+    name: "Mercan",
+    description: "Sıcak ve enerjik",
+    primary: "#D95D39",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "#FFE2D8",
+    onPrimaryContainer: "#7A2D19",
+    background: "#FFF7F3",
+    surface: "#FFFFFF",
+    text: "#2A1C18",
+    muted: "#F6EAE5",
+    mutedText: "#75635D",
+    border: "#EAD8D0",
   },
   {
     id: "nordic-light",
-    name: "Kuzey Işığı",
-    bg: "#eef2f3",
-    text: "#2c3e50",
+    name: "Adaçayı",
+    description: "Sakin ve doğal",
+    primary: "#34715A",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "#DCEBE4",
+    onPrimaryContainer: "#1B4636",
+    background: "#F4F7F4",
+    surface: "#FFFFFF",
+    text: "#17251F",
+    muted: "#E6EEE9",
+    mutedText: "#5F7068",
+    border: "#D5E1DA",
   },
   {
     id: "glassmorphic",
-    name: "Buzlu Cam",
-    bg: "#1a1a2e",
-    text: "#fff",
+    name: "Lavanta",
+    description: "Yumuşak ve zarif",
+    primary: "#6D52B5",
+    onPrimary: "#FFFFFF",
+    primaryContainer: "#EAE3FA",
+    onPrimaryContainer: "#3F2D76",
+    background: "#F8F6FC",
+    surface: "#FFFFFF",
+    text: "#211A2D",
+    muted: "#EFEAF6",
+    mutedText: "#6E657C",
+    border: "#E1DAEB",
   },
 ];
