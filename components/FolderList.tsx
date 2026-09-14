@@ -1,17 +1,10 @@
 import React from "react";
-import { View, ScrollView } from "react-native";
-import { Text, Chip, Button } from "react-native-paper";
-import { Folder, User } from "../types";
+import { ScrollView, View } from "react-native";
+import { Button, Chip, Text } from "react-native-paper";
 
-interface FolderListProps {
-  folders: Folder[];
-  selectedFolderId: string | null;
-  setSelectedFolderId: (id: string | null) => void;
-  onManageFolders: () => void;
-  onCreateFolder: () => void;
-  currentUser: User | null;
-  theme: any;
-}
+import { useAppTheme } from "../hooks/useAppTheme";
+import type { FolderListProps } from "../types/componentProps";
+import FolderChip from "./FolderChip";
 
 export default function FolderList({
   folders,
@@ -20,112 +13,121 @@ export default function FolderList({
   onManageFolders,
   onCreateFolder,
   currentUser,
-  theme,
 }: FolderListProps) {
+  const theme = useAppTheme();
+
   return (
     <View
       style={{
-        backgroundColor: "white",
-        paddingBottom: 12,
+        backgroundColor: theme.colors.background,
+        paddingVertical: theme.spacing.sm,
         borderBottomWidth: 1,
-        borderBottomColor: "#eee",
+        borderBottomColor: theme.colors.outlineVariant,
       }}
     >
       <View
         style={{
-          paddingHorizontal: 16,
-          paddingTop: 4,
-          paddingBottom: 4,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          width: "100%",
+          maxWidth: 960,
+          alignSelf: "center",
         }}
       >
-        <Text
-          variant="titleMedium"
-          style={{ fontWeight: "bold", color: "#333" }}
-        >
-          Klasörler
-        </Text>
-        <Button
-          icon="folder-edit-outline"
-          compact
-          mode="text"
-          onPress={onManageFolders}
-        >
-          Yönet
-        </Button>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
-      >
-        <Chip
-          selected={selectedFolderId === null}
-          onPress={() => setSelectedFolderId(null)}
+        <View
           style={{
-            marginRight: 8,
-            backgroundColor:
-              selectedFolderId === null
-                ? theme.colors.primaryContainer
-                : "#f5f5f5",
+            paddingHorizontal: theme.spacing.md,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
-          textStyle={{
-            color:
-              selectedFolderId === null
-                ? theme.colors.onPrimaryContainer
-                : "#666",
-          }}
-          showSelectedOverlay
-          icon="folder-open"
         >
-          Tümü
-        </Chip>
-        {folders.map((folder) => {
-          const isCollaborated =
-            folder.owner && folder.owner._id !== currentUser?.id;
-          const isShared =
-            folder.collaborators && folder.collaborators.length > 0;
-          const chipIcon =
-            isCollaborated || isShared
-              ? "account-multiple"
-              : folder.isPublic
-                ? "earth"
-                : folder.icon || "folder";
-
-          return (
-            <Chip
-              key={folder._id}
-              selected={selectedFolderId === folder._id}
-              onPress={() => setSelectedFolderId(folder._id)}
+          <View>
+            <Text
+              variant="titleSmall"
               style={{
-                marginRight: 8,
-                backgroundColor:
-                  selectedFolderId === folder._id ? folder.color : "#f5f5f5",
-                borderColor: folder.color,
-                borderWidth: selectedFolderId === folder._id ? 0 : 1,
+                color: theme.colors.onSurface,
+                fontFamily: theme.fontFamily.semibold,
               }}
-              textStyle={{
-                color: selectedFolderId === folder._id ? "#fff" : "#333",
-                fontWeight:
-                  selectedFolderId === folder._id ? "bold" : "normal",
-              }}
-              showSelectedOverlay
-              icon={chipIcon}
             >
-              {folder.name}
-            </Chip>
-          );
-        })}
-        <Chip
-          onPress={onCreateFolder}
-          style={{ backgroundColor: "#f0f0f0" }}
-          icon="plus"
+              Koleksiyonlar
+            </Text>
+            <Text
+              variant="labelSmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginTop: 1 }}
+            >
+              {folders.length === 0
+                ? "İlk klasörünü oluştur"
+                : `${folders.length} klasör`}
+            </Text>
+          </View>
+          <Button
+            icon="folder-edit-outline"
+            compact
+            mode="text"
+            textColor={theme.colors.primary}
+            onPress={onManageFolders}
+            contentStyle={{ minHeight: 40 }}
+          >
+            Düzenle
+          </Button>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: theme.spacing.md,
+            paddingTop: theme.spacing.sm,
+          }}
         >
-          Yeni Ekle
-        </Chip>
-      </ScrollView>
+          <FolderChip
+            label="Tümü"
+            icon="archive-outline"
+            selected={selectedFolderId === null}
+            onPress={() => setSelectedFolderId(null)}
+          />
+          {folders.map((folder) => {
+            const isCollaborated =
+              folder.owner && folder.owner._id !== currentUser?.id;
+            const isShared =
+              folder.collaborators && folder.collaborators.length > 0;
+            const chipIcon =
+              isCollaborated || isShared
+                ? "account-multiple-outline"
+                : folder.isPublic
+                  ? "earth"
+                  : folder.icon || "folder-outline";
+
+            return (
+              <FolderChip
+                key={folder._id}
+                label={folder.name}
+                icon={chipIcon}
+                color={folder.color}
+                selected={selectedFolderId === folder._id}
+                onPress={() => setSelectedFolderId(folder._id)}
+              />
+            );
+          })}
+          <Chip
+            onPress={onCreateFolder}
+            icon="plus"
+            mode="outlined"
+            style={{
+              backgroundColor: "transparent",
+              borderColor: theme.colors.outline,
+              borderStyle: "dashed",
+              borderRadius: theme.radius.sm,
+              minHeight: 40,
+            }}
+            textStyle={{
+              color: theme.colors.onSurfaceVariant,
+              fontFamily: theme.fontFamily.medium,
+              fontSize: 13,
+            }}
+          >
+            Yeni klasör
+          </Chip>
+        </ScrollView>
+      </View>
     </View>
   );
 }

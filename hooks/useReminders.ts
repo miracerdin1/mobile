@@ -10,6 +10,7 @@ import {
   cancelLocalNotification,
   scheduleSmartWeeklyNotification,
 } from "../utils/reminderHelper";
+import { normalizeHttpUrl } from "../utils/url";
 
 export function useReminders() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -119,8 +120,10 @@ export function useReminders() {
           Platform.OS === "web"
             ? (message, url) => {
                 if (confirm(message)) {
-                  // In useReminders, we simulate clicking
-                  window.open(url, "_blank");
+                  const safeUrl = normalizeHttpUrl(url);
+                  if (!safeUrl) return;
+
+                  window.open(safeUrl, "_blank", "noopener,noreferrer");
                 }
               }
             : undefined,

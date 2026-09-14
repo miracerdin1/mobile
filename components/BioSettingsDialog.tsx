@@ -1,14 +1,9 @@
 import React from "react";
-import { ScrollView, View } from "react-native";
-import {
-  Dialog,
-  TextInput,
-  Text,
-  Chip,
-  Button,
-} from "react-native-paper";
+import { Pressable, ScrollView, View } from "react-native";
+import { Button, Dialog, Icon, Text, TextInput } from "react-native-paper";
 
 import { THEME_PRESETS } from "../constants";
+import { useAppTheme } from "../hooks/useAppTheme";
 import { BioSettingsDialogProps } from "../types";
 
 export default function BioSettingsDialog({
@@ -24,10 +19,11 @@ export default function BioSettingsDialog({
   setProfileTheme,
   savingProfile,
   onSave,
-  theme,
 }: BioSettingsDialogProps) {
+  const theme = useAppTheme();
+
   return (
-    <Dialog visible={visible} onDismiss={onDismiss}>
+    <Dialog visible={visible} onDismiss={onDismiss} style={{ borderRadius: theme.radius.lg }}>
       <Dialog.Title>Bio Sayfası Ayarları</Dialog.Title>
       <Dialog.Content>
         <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
@@ -36,7 +32,7 @@ export default function BioSettingsDialog({
             value={profileName}
             onChangeText={setProfileName}
             mode="outlined"
-            style={{ marginBottom: 12 }}
+            style={{ marginBottom: theme.spacing.sm + theme.spacing.xs }}
           />
 
           <TextInput
@@ -46,7 +42,7 @@ export default function BioSettingsDialog({
             mode="outlined"
             multiline
             numberOfLines={3}
-            style={{ marginBottom: 12 }}
+            style={{ marginBottom: theme.spacing.sm + theme.spacing.xs }}
           />
 
           <TextInput
@@ -56,49 +52,117 @@ export default function BioSettingsDialog({
             mode="outlined"
             autoCapitalize="none"
             keyboardType="url"
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: theme.spacing.md }}
           />
 
           <Text
             variant="labelLarge"
-            style={{ marginBottom: 8, fontWeight: "bold" }}
+            style={{
+              fontFamily: theme.fontFamily.semibold,
+              color: theme.colors.onSurface,
+            }}
           >
-            Görsel Tema
+            Uygulama ve bio teması
+          </Text>
+          <Text
+            variant="bodySmall"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              marginTop: 2,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            Bir palete dokunarak arayüzde önizle; kaydederek kalıcı hâle getir.
           </Text>
           <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Renk paletleri"
             style={{
               flexDirection: "row",
               flexWrap: "wrap",
-              marginBottom: 8,
-              gap: 8,
+              marginBottom: theme.spacing.sm,
+              gap: theme.spacing.sm,
             }}
           >
-            {THEME_PRESETS.map((t) => (
-              <Chip
-                key={t.id}
-                selected={profileTheme === t.id}
-                onPress={() => setProfileTheme(t.id)}
-                style={{
-                  backgroundColor: profileTheme === t.id ? t.bg : "#f0f0f0",
-                  borderColor:
-                    profileTheme === t.id ? theme.colors.primary : "#ccc",
-                  borderWidth: profileTheme === t.id ? 2 : 0,
-                  marginRight: 4,
-                  marginBottom: 8,
-                }}
-                textStyle={{
-                  color: profileTheme === t.id ? t.text : "#333",
-                  fontWeight: profileTheme === t.id ? "bold" : "normal",
-                }}
-              >
-                {t.name}
-              </Chip>
-            ))}
+            {THEME_PRESETS.map((preset) => {
+              const selected = profileTheme === preset.id;
+
+              return (
+                <Pressable
+                  key={preset.id}
+                  onPress={() => setProfileTheme(preset.id)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${preset.name}: ${preset.description}`}
+                  accessibilityState={{ selected }}
+                  style={({ pressed }) => ({
+                    width: "48%",
+                    minHeight: 92,
+                    padding: theme.spacing.sm + 2,
+                    borderRadius: theme.radius.md,
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected
+                      ? preset.primary
+                      : theme.colors.outlineVariant,
+                    backgroundColor: preset.background,
+                    opacity: pressed ? 0.72 : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: theme.spacing.sm,
+                    }}
+                  >
+                    {[preset.primary, preset.primaryContainer, preset.surface].map(
+                      (color) => (
+                        <View
+                          key={color}
+                          style={{
+                            width: 18,
+                            height: 18,
+                            marginRight: 5,
+                            borderRadius: 9,
+                            borderWidth: 1,
+                            borderColor: preset.border,
+                            backgroundColor: color,
+                          }}
+                        />
+                      ),
+                    )}
+                    {selected && (
+                      <View style={{ marginLeft: "auto" }}>
+                        <Icon
+                          source="check-circle"
+                          size={18}
+                          color={preset.primary}
+                        />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    variant="labelLarge"
+                    style={{
+                      color: preset.text,
+                      fontFamily: theme.fontFamily.semibold,
+                    }}
+                  >
+                    {preset.name}
+                  </Text>
+                  <Text
+                    variant="labelSmall"
+                    style={{ color: preset.mutedText, marginTop: 1 }}
+                  >
+                    {preset.description}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </ScrollView>
       </Dialog.Content>
       <Dialog.Actions>
-        <Button onPress={onDismiss} disabled={savingProfile}>
+        <Button onPress={onDismiss} disabled={savingProfile} textColor={theme.colors.onSurfaceVariant}>
           İptal
         </Button>
         <Button
@@ -106,6 +170,8 @@ export default function BioSettingsDialog({
           onPress={onSave}
           loading={savingProfile}
           disabled={savingProfile}
+          buttonColor={theme.colors.primary}
+          textColor={theme.colors.onPrimary}
         >
           Kaydet
         </Button>

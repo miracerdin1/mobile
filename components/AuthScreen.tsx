@@ -1,27 +1,29 @@
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  View,
-  ScrollView,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  ScrollView,
+  StyleSheet,
   TouchableOpacity,
+  View,
 } from "react-native";
 import {
+  ActivityIndicator,
+  Surface,
   Text,
   TextInput,
-  Button,
-  ActivityIndicator,
-  useTheme,
-  Surface,
 } from "react-native-paper";
-import api from "../services/api";
+
+import { useAppTheme } from "../hooks/useAppTheme";
 import Config from "../constants/Config";
+import api from "../services/api";
 import { AuthScreenProps } from "../types";
+import Logo from "./Logo";
+import PrimaryButton from "./PrimaryButton";
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  const paperTheme = useTheme();
+  const theme = useAppTheme();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -110,6 +112,8 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
   };
 
+  const styles = makeStyles(theme);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -120,20 +124,20 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerContainer}>
-          <Text style={styles.logoText}>📄 LinkFlow</Text>
+          <Logo size={36} />
           <Text style={styles.subtitleText}>
             Tüm bağlantılarınızı tek bir yerde toplayın ve paylaşın
           </Text>
         </View>
 
-        <Surface style={styles.card} elevation={3}>
+        <Surface style={styles.card} elevation={1}>
           <Text style={styles.cardTitle}>
             {isLogin ? "Giriş Yap" : "Kayıt Ol"}
           </Text>
 
           {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>⚠️ {error}</Text>
+            <View style={styles.errorContainer} accessibilityRole="alert">
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
@@ -145,10 +149,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               mode="outlined"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
               left={<TextInput.Icon icon="account-outline" />}
               style={styles.input}
-              outlineColor="#ddd"
-              activeOutlineColor="#6200ee"
+              outlineColor={theme.colors.outlineVariant}
+              activeOutlineColor={theme.colors.primary}
             />
           )}
 
@@ -161,10 +167,12 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="email"
+              textContentType="emailAddress"
               left={<TextInput.Icon icon="email-outline" />}
               style={styles.input}
-              outlineColor="#ddd"
-              activeOutlineColor="#6200ee"
+              outlineColor={theme.colors.outlineVariant}
+              activeOutlineColor={theme.colors.primary}
             />
           )}
 
@@ -176,10 +184,11 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               mode="outlined"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
               left={<TextInput.Icon icon="account-box-outline" />}
               style={styles.input}
-              outlineColor="#ddd"
-              activeOutlineColor="#6200ee"
+              outlineColor={theme.colors.outlineVariant}
+              activeOutlineColor={theme.colors.primary}
             />
           )}
 
@@ -191,34 +200,35 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete={isLogin ? "current-password" : "new-password"}
+            textContentType={isLogin ? "password" : "newPassword"}
             left={<TextInput.Icon icon="lock-outline" />}
             right={
               <TextInput.Icon
                 icon={showPassword ? "eye-off" : "eye"}
                 onPress={() => setShowPassword(!showPassword)}
+                forceTextInputFocus={false}
+                accessibilityLabel={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
               />
             }
             style={styles.input}
-            outlineColor="#ddd"
-            activeOutlineColor="#6200ee"
+            outlineColor={theme.colors.outlineVariant}
+            activeOutlineColor={theme.colors.primary}
           />
 
-          <Button
-            mode="contained"
+          <PrimaryButton
             onPress={handleAuth}
             disabled={loading}
-            style={styles.authButton}
-            contentStyle={styles.authButtonContent}
-            labelStyle={styles.authButtonLabel}
+            style={{ marginTop: theme.spacing.xs }}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" size={20} />
+              <ActivityIndicator color={theme.colors.onPrimary} size={20} />
             ) : isLogin ? (
               "Giriş Yap"
             ) : (
               "Hesap Oluştur"
             )}
-          </Button>
+          </PrimaryButton>
 
           <View style={styles.switchContainer}>
             <Text style={styles.switchText}>
@@ -226,7 +236,7 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 ? "Henüz bir hesabınız yok mu? "
                 : "Zaten hesabınız var mı? "}
             </Text>
-            <TouchableOpacity onPress={toggleMode}>
+            <TouchableOpacity onPress={toggleMode} accessibilityRole="button">
               <Text style={styles.switchLink}>
                 {isLogin ? "Kayıt Olun" : "Giriş Yapın"}
               </Text>
@@ -242,99 +252,82 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0f0c20",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  headerContainer: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  logoText: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: -1,
-    marginBottom: 8,
-  },
-  subtitleText: {
-    fontSize: 14,
-    color: "#a09db5",
-    textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 20,
-  },
-  card: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-  },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 20,
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  errorContainer: {
-    backgroundColor: "rgba(211, 47, 47, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(211, 47, 47, 0.3)",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#ff8a80",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  input: {
-    marginBottom: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-  },
-  authButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    backgroundColor: "#6200ee",
-  },
-  authButtonContent: {
-    height: 48,
-  },
-  authButtonLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    letterSpacing: 0.5,
-  },
-  switchContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 20,
-  },
-  switchText: {
-    color: "#a09db5",
-    fontSize: 14,
-  },
-  switchLink: {
-    color: "#03dac6",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  footerText: {
-    textAlign: "center",
-    color: "#6b6780",
-    fontSize: 12,
-    marginTop: 32,
-    letterSpacing: 0.5,
-  },
-});
+const makeStyles = (theme: ReturnType<typeof useAppTheme>) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      padding: theme.spacing.lg,
+    },
+    headerContainer: {
+      alignItems: "center",
+      marginBottom: theme.spacing.xl,
+    },
+    subtitleText: {
+      fontFamily: theme.fontFamily.regular,
+      fontSize: 14,
+      color: theme.colors.onSurfaceVariant,
+      textAlign: "center",
+      lineHeight: 20,
+      paddingHorizontal: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.xl,
+      padding: theme.spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.outlineVariant,
+    },
+    cardTitle: {
+      fontFamily: theme.fontFamily.bold,
+      fontSize: 22,
+      color: theme.colors.onSurface,
+      marginBottom: theme.spacing.lg,
+      textAlign: "center",
+    },
+    errorContainer: {
+      backgroundColor: theme.colors.errorContainer,
+      borderRadius: theme.radius.sm,
+      padding: theme.spacing.sm + theme.spacing.xs,
+      marginBottom: theme.spacing.md,
+    },
+    errorText: {
+      fontFamily: theme.fontFamily.medium,
+      color: theme.colors.onErrorContainer,
+      fontSize: 13,
+    },
+    input: {
+      marginBottom: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+    },
+    switchContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      flexWrap: "wrap",
+      marginTop: theme.spacing.lg,
+    },
+    switchText: {
+      fontFamily: theme.fontFamily.regular,
+      color: theme.colors.onSurfaceVariant,
+      fontSize: 14,
+    },
+    switchLink: {
+      fontFamily: theme.fontFamily.semibold,
+      color: theme.colors.primary,
+      fontSize: 14,
+    },
+    footerText: {
+      fontFamily: theme.fontFamily.regular,
+      textAlign: "center",
+      color: theme.colors.onSurfaceVariant,
+      fontSize: 12,
+      marginTop: theme.spacing.xl,
+      letterSpacing: 0.3,
+    },
+  });

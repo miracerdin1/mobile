@@ -1,13 +1,11 @@
 import React from "react";
-import { View, ScrollView, StyleSheet } from "react-native";
-import {
-  IconButton,
-  Text,
-  Chip,
-  Button,
-} from "react-native-paper";
+import { ScrollView, View } from "react-native";
+import { Button, IconButton, Text } from "react-native-paper";
 
-import { ClipboardPromptProps } from "../types";
+import { useAppTheme } from "../hooks/useAppTheme";
+import type { ClipboardPromptProps } from "../types/componentProps";
+import FolderChip from "./FolderChip";
+import PrimaryButton from "./PrimaryButton";
 
 export default function ClipboardPrompt({
   visible,
@@ -18,152 +16,105 @@ export default function ClipboardPrompt({
   savingClipboard,
   onSave,
   onDismiss,
-  theme,
 }: ClipboardPromptProps) {
+  const theme = useAppTheme();
+
   if (!visible || !clipboardUrl) return null;
 
   return (
-    <View style={styles.clipboardCardContainer}>
-      <View style={styles.clipboardCard}>
-        <View style={styles.clipboardHeader}>
+    <View
+      style={{
+        position: "absolute",
+        bottom: 90,
+        left: theme.spacing.md,
+        right: theme.spacing.md,
+        alignItems: "center",
+        zIndex: 100,
+      }}
+    >
+      <View
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.outlineVariant,
+          padding: theme.spacing.md,
+          width: "100%",
+          shadowColor: theme.colors.shadow,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.sm }}>
           <IconButton
             icon="content-copy"
-            size={24}
+            size={22}
             iconColor={theme.colors.primary}
             style={{ margin: 0 }}
           />
-          <Text variant="titleMedium" style={styles.clipboardTitle}>
+          <Text
+            variant="titleMedium"
+            style={{ fontFamily: theme.fontFamily.semibold, marginLeft: theme.spacing.sm, color: theme.colors.onSurface }}
+          >
             Panoda Link Algılandı
           </Text>
         </View>
         <Text
           variant="bodyMedium"
           numberOfLines={1}
-          style={styles.clipboardUrlText}
+          style={{ color: theme.colors.onSurfaceVariant, marginBottom: theme.spacing.md }}
         >
           {clipboardUrl}
         </Text>
 
         {folders.length > 0 && (
-          <View style={{ marginBottom: 12 }}>
+          <View style={{ marginBottom: theme.spacing.md }}>
             <Text
               variant="labelSmall"
-              style={{ marginBottom: 6, fontWeight: "bold", color: "#666" }}
+              style={{ marginBottom: theme.spacing.xs + 2, fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurfaceVariant }}
             >
               Klasör Seçin (İsteğe Bağlı):
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <Chip
+              <FolderChip
+                label="Yok"
+                icon="folder-off-outline"
+                compact
                 selected={clipboardFolderId === null}
                 onPress={() => setClipboardFolderId(null)}
-                style={{
-                  marginRight: 6,
-                  height: 32,
-                  backgroundColor:
-                    clipboardFolderId === null
-                      ? theme.colors.primaryContainer
-                      : "#f5f5f5",
-                }}
-                textStyle={{
-                  fontSize: 11,
-                  color:
-                    clipboardFolderId === null
-                      ? theme.colors.onPrimaryContainer
-                      : "#666",
-                }}
-                showSelectedOverlay
-                compact
-              >
-                Yok
-              </Chip>
+              />
               {folders.map((f) => (
-                <Chip
+                <FolderChip
                   key={f._id}
+                  label={f.name}
+                  icon={f.icon || "folder"}
+                  color={f.color}
+                  compact
                   selected={clipboardFolderId === f._id}
                   onPress={() => setClipboardFolderId(f._id)}
-                  style={{
-                    marginRight: 6,
-                    height: 32,
-                    backgroundColor:
-                      clipboardFolderId === f._id ? f.color : "#f5f5f5",
-                    borderColor: f.color,
-                    borderWidth: clipboardFolderId === f._id ? 0 : 1,
-                  }}
-                  textStyle={{
-                    color: clipboardFolderId === f._id ? "#fff" : "#333",
-                    fontWeight:
-                      clipboardFolderId === f._id ? "bold" : "normal",
-                    fontSize: 11,
-                  }}
-                  showSelectedOverlay
-                  compact
-                  icon={f.icon || "folder"}
-                >
-                  {f.name}
-                </Chip>
+                />
               ))}
             </ScrollView>
           </View>
         )}
 
-        <View style={styles.clipboardActions}>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center" }}>
           <Button
             mode="text"
             onPress={onDismiss}
             disabled={savingClipboard}
+            textColor={theme.colors.onSurfaceVariant}
+            labelStyle={{ fontFamily: theme.fontFamily.medium }}
           >
             İptal
           </Button>
-          <Button
-            mode="contained"
-            onPress={onSave}
-            loading={savingClipboard}
-            disabled={savingClipboard}
-            style={{ marginLeft: 8 }}
-          >
+          <PrimaryButton onPress={onSave} loading={savingClipboard} disabled={savingClipboard} compact style={{ marginLeft: theme.spacing.sm }}>
             Kaydet
-          </Button>
+          </PrimaryButton>
         </View>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  clipboardCardContainer: {
-    position: "absolute",
-    bottom: 90,
-    left: 16,
-    right: 16,
-    alignItems: "center",
-    zIndex: 100,
-  },
-  clipboardCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 16,
-    padding: 16,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  clipboardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  clipboardTitle: {
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  clipboardUrlText: {
-    color: "#666",
-    marginBottom: 16,
-  },
-  clipboardActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-  },
-});

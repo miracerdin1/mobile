@@ -1,15 +1,18 @@
-import api from "../../services/api";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Chip, Text, TextInput, useTheme, Switch } from "react-native-paper";
+import { Alert, ScrollView, View } from "react-native";
+import { Button, Switch, Text, TextInput } from "react-native-paper";
+
+import FolderChip from "../../components/FolderChip";
+import PrimaryButton from "../../components/PrimaryButton";
 import Config from "../../constants/Config";
-import { getStoredToken } from "../../services/authStorage";
+import { useAppTheme } from "../../hooks/useAppTheme";
+import api from "../../services/api";
 
 export default function EditLink() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -25,10 +28,6 @@ export default function EditLink() {
   useEffect(() => {
     const init = async () => {
       try {
-        const token = await getStoredToken();
-        if (token) {
-          
-        }
         if (id) {
           await Promise.all([fetchLinkDetails(), fetchFolders()]);
         }
@@ -91,17 +90,19 @@ export default function EditLink() {
   };
 
   if (fetching) {
-    return <View style={styles.container} />;
+    return <View style={{ flex: 1, padding: theme.spacing.md, backgroundColor: theme.colors.background }} />;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, padding: theme.spacing.md, backgroundColor: theme.colors.background }}>
       <TextInput
         label="URL"
         value={url}
         onChangeText={setUrl}
         mode="outlined"
-        style={styles.input}
+        outlineColor={theme.colors.outlineVariant}
+        activeOutlineColor={theme.colors.primary}
+        style={{ marginBottom: theme.spacing.md }}
       />
 
       <TextInput
@@ -109,7 +110,9 @@ export default function EditLink() {
         value={title}
         onChangeText={setTitle}
         mode="outlined"
-        style={styles.input}
+        outlineColor={theme.colors.outlineVariant}
+        activeOutlineColor={theme.colors.primary}
+        style={{ marginBottom: theme.spacing.md }}
       />
 
       <TextInput
@@ -119,100 +122,63 @@ export default function EditLink() {
         mode="outlined"
         multiline
         numberOfLines={4}
-        style={styles.input}
+        outlineColor={theme.colors.outlineVariant}
+        activeOutlineColor={theme.colors.primary}
+        style={{ marginBottom: theme.spacing.md }}
       />
 
-      <Text variant="titleMedium" style={styles.sectionTitle}>Klasöre Ekle (İsteğe Bağlı)</Text>
-      <View style={styles.folderContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
-          <Chip
+      <Text
+        variant="titleMedium"
+        style={{ fontFamily: theme.fontFamily.semibold, marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm, color: theme.colors.onSurface }}
+      >
+        Klasöre Ekle (İsteğe Bağlı)
+      </Text>
+      <View style={{ marginBottom: theme.spacing.lg, height: 48 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: theme.spacing.xs }}>
+          <FolderChip
+            label="Klasör Yok"
+            icon="folder-off-outline"
             selected={selectedFolderId === null}
             onPress={() => setSelectedFolderId(null)}
-            style={{ marginRight: 8, backgroundColor: selectedFolderId === null ? theme.colors.primaryContainer : "#f5f5f5" }}
-            textStyle={{ color: selectedFolderId === null ? theme.colors.onPrimaryContainer : "#666" }}
-            showSelectedOverlay
-            icon="folder-open"
-          >
-            Klasör Yok
-          </Chip>
+          />
           {folders.map((f) => (
-            <Chip
+            <FolderChip
               key={f._id}
+              label={f.name}
+              icon={f.icon || "folder"}
+              color={f.color}
               selected={selectedFolderId === f._id}
               onPress={() => setSelectedFolderId(f._id)}
-              style={{
-                marginRight: 8,
-                backgroundColor: selectedFolderId === f._id ? f.color : "#f5f5f5",
-                borderColor: f.color,
-                borderWidth: selectedFolderId === f._id ? 0 : 1,
-              }}
-              textStyle={{
-                color: selectedFolderId === f._id ? "#fff" : "#333",
-                fontWeight: selectedFolderId === f._id ? "bold" : "normal"
-              }}
-              showSelectedOverlay
-              icon={f.icon || "folder"}
-            >
-              {f.name}
-            </Chip>
+            />
           ))}
         </ScrollView>
       </View>
 
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text variant="labelLarge" style={{ fontWeight: "bold" }}>Herkese Açık</Text>
-          <Text variant="bodySmall" style={{ color: "#666" }}>Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: theme.spacing.xl }}>
+        <View style={{ flex: 1, marginRight: theme.spacing.sm }}>
+          <Text variant="labelLarge" style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.onSurface }}>
+            Herkese Açık
+          </Text>
+          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            Bu bağlantı Bio sayfanızda Genel Bağlantılar altında listelenir.
+          </Text>
         </View>
-        <Switch
-          value={isPublic}
-          onValueChange={setIsPublic}
-          color={theme.colors.primary}
-        />
+        <Switch value={isPublic} onValueChange={setIsPublic} color={theme.colors.primary} />
       </View>
 
-      <Button
-        mode="contained"
-        onPress={handleSave}
-        loading={loading}
-        disabled={loading}
-        style={styles.button}
-      >
+      <PrimaryButton onPress={handleSave} loading={loading} disabled={loading}>
         Değişiklikleri Kaydet
-      </Button>
+      </PrimaryButton>
 
       <Button
         mode="text"
         onPress={() => router.back()}
         disabled={loading}
-        style={styles.button}
+        textColor={theme.colors.onSurfaceVariant}
+        style={{ marginTop: theme.spacing.sm }}
       >
         İptal
       </Button>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: "#fff",
-  },
-  input: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontWeight: "bold",
-    marginTop: 8,
-    marginBottom: 8,
-    color: "#333",
-  },
-  folderContainer: {
-    marginBottom: 24,
-    height: 48,
-  },
-  button: {
-    marginTop: 8,
-  },
-});
