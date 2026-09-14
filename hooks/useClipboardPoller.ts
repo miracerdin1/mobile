@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
-import { AppState, AppStateStatus, Platform, Alert } from "react-native";
+import { useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import api from "../services/api";
 import Config from "../constants/Config";
 import { useAuth } from "../context/AuthContext";
+import { extractHttpUrl } from "../utils/url";
+import { showAlert } from "../utils/alert";
 
 export function useClipboardPoller(onSaveSuccess: () => void) {
   const { token, isAuthenticated } = useAuth();
@@ -16,44 +17,37 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
   const checkClipboard = useCallback(async (isManual: boolean = false) => {
     try {
       if (!token) return;
-      if (Platform.OS === "web") {
-        if (isManual) {
-          Alert.alert("Bilgi", "Web tarayıcılarında pano erişimi kısıtlıdır.");
-        }
-        return;
-      }
 
       const hasString = await Clipboard.hasStringAsync();
       if (!hasString) {
         if (isManual) {
-          Alert.alert("Bilgi", "Panonuz boş veya metin içermiyor.");
+          showAlert("Bilgi", "Panonuz boş veya metin içermiyor.");
         }
         return;
       }
 
       const content = await Clipboard.getStringAsync();
-      const urlPattern =
-        /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?(\?.*)?$/;
+      const detectedUrl = extractHttpUrl(content);
 
-      if (urlPattern.test(content)) {
+      if (detectedUrl) {
         const lastSaved = await AsyncStorage.getItem("lastSavedClipboardUrl");
-        if (lastSaved !== content || isManual) {
-          setClipboardUrl(content);
-          setShowClipboardPrompt(true);
-        } else if (isManual) {
-          // If already saved but user clicked manually, still show it to allow editing/moving
-          setClipboardUrl(content);
+        if (lastSaved !== detectedUrl || isManual) {
+          setClipboardUrl(detectedUrl);
           setShowClipboardPrompt(true);
         }
-      } else {
-        if (isManual) {
-          Alert.alert("Bilgi", "Panonuzda geçerli bir bağlantı (URL) bulunamadı.");
-        }
+        return;
+      }
+
+      if (isManual) {
+        showAlert("Bilgi", "Panonuzda geçerli bir bağlantı bulunamadı.");
       }
     } catch (error) {
       console.error("Clipboard check error:", error);
       if (isManual) {
-        Alert.alert("Hata", "Pano kontrol edilirken bir hata oluştu.");
+        showAlert(
+          "Pano izni gerekli",
+          "Panoya erişilemedi. Bağlantıyı kopyalayıp tekrar Panodan Ekle düğmesine dokunun.",
+        );
       }
     }
   }, [token]);
@@ -79,7 +73,7 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
       onSaveSuccess();
     } catch (error: any) {
       const errMsg = error.response?.data?.message || "Panodan bağlantı kaydedilemedi.";
-      Alert.alert("Hata", errMsg);
+      showAlert("Hata", errMsg);
     } finally {
       setSavingClipboard(false);
     }

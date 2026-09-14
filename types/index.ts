@@ -31,6 +31,8 @@ export interface Link {
   owner?: string;
   reminderScheduled?: boolean;
   createdAt?: string;
+  isBroken?: boolean;
+  lastCheckedAt?: string;
 }
 
 export interface Reminder {
@@ -63,7 +65,6 @@ export interface BioSettingsDialogProps {
   setProfileTheme: (val: string) => void;
   savingProfile: boolean;
   onSave: () => Promise<void>;
-  theme: any;
 }
 
 export interface AccountSettingsDialogProps {
@@ -73,18 +74,8 @@ export interface AccountSettingsDialogProps {
   deletingAccount: boolean;
   onDeleteAccount: () => void;
   onManageSubscription?: () => void;
-}
-
-export interface ClipboardPromptProps {
-  visible: boolean;
-  clipboardUrl: string | null;
-  clipboardFolderId: string | null;
-  setClipboardFolderId: (id: string | null) => void;
-  folders: Folder[];
-  savingClipboard: boolean;
-  onSave: () => Promise<void>;
-  onDismiss: () => Promise<void>;
-  theme: any;
+  checkingBroken: boolean;
+  onCheckBrokenLinks: () => void;
 }
 
 export interface CollaborationDialogProps {
@@ -148,8 +139,12 @@ export interface LinkCardProps {
   folderName?: string;
   folderColor?: string;
   folderIcon?: string;
+  createdAt?: string;
+  isBroken?: boolean;
   onDelete?: () => void;
   onEdit?: () => void;
   onRemind?: () => void;
   hasReminder?: boolean;
+  /** "grid" renders a compact, image-forward card for a 2-column layout. */
+  layout?: "list" | "grid";
 }
