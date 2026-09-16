@@ -1,7 +1,9 @@
 import React from "react";
+import Animated from "react-native-reanimated";
 import { Button } from "react-native-paper";
 
 import { useAppTheme } from "../hooks/useAppTheme";
+import { usePressAnimation } from "../hooks/usePressAnimation";
 import type { PrimaryButtonProps } from "../types/componentProps";
 
 /**
@@ -20,22 +22,31 @@ export default function PrimaryButton({
   compact,
 }: PrimaryButtonProps) {
   const theme = useAppTheme();
+  const { animatedStyle, pressHandlers } = usePressAnimation({
+    disabled: disabled || loading,
+  });
 
   return (
-    <Button
-      mode="contained"
-      onPress={onPress}
-      disabled={disabled}
-      loading={loading}
-      icon={icon}
-      compact={compact}
-      buttonColor={theme.colors.primary}
-      textColor={theme.colors.onPrimary}
-      style={[{ borderRadius: theme.radius.md }, style]}
-      contentStyle={{ height: compact ? 40 : 48 }}
-      labelStyle={[{ fontFamily: theme.fontFamily.semibold, fontSize: 15 }, labelStyle]}
-    >
-      {children}
-    </Button>
+    <Animated.View style={animatedStyle}>
+      <Button
+        mode="contained"
+        onPress={onPress}
+        {...pressHandlers}
+        disabled={disabled}
+        loading={loading}
+        icon={icon}
+        compact={compact}
+        buttonColor={theme.colors.primary}
+        textColor={theme.colors.onPrimary}
+        style={[{ borderRadius: theme.radius.md }, style]}
+        contentStyle={{ height: compact ? 40 : 48 }}
+        labelStyle={[
+          { fontFamily: theme.fontFamily.semibold, fontSize: 15 },
+          labelStyle,
+        ]}
+      >
+        {children}
+      </Button>
+    </Animated.View>
   );
 }

@@ -2,8 +2,11 @@ import React from "react";
 import { Animated, Image, Linking, Share, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { Card, Icon, IconButton, Text } from "react-native-paper";
+import Reanimated from "react-native-reanimated";
 
 import { useAppTheme } from "../hooks/useAppTheme";
+import { usePressAnimation } from "../hooks/usePressAnimation";
+import StaggerIn from "./StaggerIn";
 import { LinkCardProps } from "../types";
 import { showAlert } from "../utils/alert";
 import { formatMetaDate } from "../utils/date";
@@ -26,8 +29,14 @@ export default function LinkCard({
   onRemind,
   hasReminder,
   layout = "list",
+  index = 0,
 }: LinkCardProps) {
   const theme = useAppTheme();
+  const { animatedStyle, pressHandlers, hoverHandlers } = usePressAnimation({
+    // Cards are large, so they need a gentler squeeze than a button does.
+    pressScale: 0.985,
+    hoverScale: 1.012,
+  });
   const metaDate = formatMetaDate(createdAt);
   const isGrid = layout === "grid";
   const safeUrl = normalizeHttpUrl(url);
@@ -279,103 +288,108 @@ export default function LinkCard({
       };
 
   return (
-    <Swipeable renderRightActions={renderRightActions}>
-      <Card
-        mode="contained"
-        style={cardStyle}
-        onPress={handlePress}
-        accessibilityRole="link"
-        accessibilityLabel={title || siteName || url}
-      >
-        {isGrid ? (
-          <View>
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                style={{
-                  width: "100%",
-                  aspectRatio: 1.5,
-                  backgroundColor: theme.app.imagePlaceholder,
-                  borderWidth: 1,
-                  borderColor: theme.colors.outlineVariant,
-                }}
-                resizeMode="cover"
-              />
+    <StaggerIn index={index} style={isGrid ? { flex: 1 } : undefined}>
+      <Swipeable renderRightActions={renderRightActions}>
+        <Reanimated.View style={animatedStyle} {...hoverHandlers}>
+          <Card
+            mode="contained"
+            style={cardStyle}
+            onPress={handlePress}
+            {...pressHandlers}
+            accessibilityRole="link"
+            accessibilityLabel={title || siteName || url}
+          >
+            {isGrid ? (
+              <View>
+                {imageUrl ? (
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={{
+                      width: "100%",
+                      aspectRatio: 1.5,
+                      backgroundColor: theme.app.imagePlaceholder,
+                      borderWidth: 1,
+                      borderColor: theme.colors.outlineVariant,
+                    }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: "100%",
+                      aspectRatio: 1.5,
+                      backgroundColor: theme.app.imagePlaceholder,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <IconButton icon="link-variant" size={28} iconColor={theme.colors.onSurfaceVariant} style={{ margin: 0 }} />
+                  </View>
+                )}
+                <View style={{ padding: theme.spacing.sm + 2 }}>
+                  {brokenBadge}
+                  <Text
+                    variant="labelLarge"
+                    numberOfLines={2}
+                    style={{
+                      fontFamily: theme.fontFamily.display,
+                      color: theme.colors.onSurface,
+                      fontSize: 16,
+                      lineHeight: 21,
+                      marginBottom: theme.spacing.xs,
+                    }}
+                  >
+                    {title || (siteName ? siteName : "Bağlantı")}
+                  </Text>
+                  {metaRow}
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "flex-end",
+                      marginTop: theme.spacing.xs,
+                      marginRight: -6,
+                      marginBottom: -6,
+                    }}
+                  >
+                    {actionIcons}
+                  </View>
+                </View>
+              </View>
             ) : (
-              <View
-                style={{
-                  width: "100%",
-                  aspectRatio: 1.5,
-                  backgroundColor: theme.app.imagePlaceholder,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <IconButton icon="link-variant" size={28} iconColor={theme.colors.onSurfaceVariant} style={{ margin: 0 }} />
+              <View style={{ flexDirection: "row", padding: theme.spacing.sm + theme.spacing.xs }}>
+                {thumbnail(68)}
+                <View style={{ flex: 1, marginLeft: theme.spacing.sm + theme.spacing.xs }}>
+                  <Text
+                    variant="titleMedium"
+                    numberOfLines={2}
+                    style={{
+                      fontFamily: theme.fontFamily.display,
+                      color: theme.colors.onSurface,
+                      fontSize: 17,
+                      lineHeight: 22,
+                    }}
+                  >
+                    {title || (siteName ? siteName : "Bağlantı")}
+                  </Text>
+
+                  {isBroken && <View style={{ marginTop: theme.spacing.xs }}>{brokenBadge}</View>}
+
+                  {description && (
+                    <Text variant="bodySmall" numberOfLines={2} style={{ color: theme.colors.onSurfaceVariant, marginTop: 2, marginBottom: theme.spacing.xs }}>
+                      {description}
+                    </Text>
+                  )}
+
+                  {metaRow}
+                  <View style={{ marginTop: 2, marginRight: -6, marginBottom: -6 }}>
+                    {actionIcons}
+                  </View>
+                </View>
               </View>
             )}
-            <View style={{ padding: theme.spacing.sm + 2 }}>
-              {brokenBadge}
-              <Text
-                variant="labelLarge"
-                numberOfLines={2}
-                style={{
-                  fontFamily: theme.fontFamily.display,
-                  color: theme.colors.onSurface,
-                  fontSize: 16,
-                  lineHeight: 21,
-                  marginBottom: theme.spacing.xs,
-                }}
-              >
-                {title || (siteName ? siteName : "Bağlantı")}
-              </Text>
-              {metaRow}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "flex-end",
-                  marginTop: theme.spacing.xs,
-                  marginRight: -6,
-                  marginBottom: -6,
-                }}
-              >
-                {actionIcons}
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={{ flexDirection: "row", padding: theme.spacing.sm + theme.spacing.xs }}>
-            {thumbnail(68)}
-            <View style={{ flex: 1, marginLeft: theme.spacing.sm + theme.spacing.xs }}>
-              <Text
-                variant="titleMedium"
-                numberOfLines={2}
-                style={{
-                  fontFamily: theme.fontFamily.display,
-                  color: theme.colors.onSurface,
-                  fontSize: 17,
-                  lineHeight: 22,
-                }}
-              >
-                {title || (siteName ? siteName : "Bağlantı")}
-              </Text>
-
-              {isBroken && <View style={{ marginTop: theme.spacing.xs }}>{brokenBadge}</View>}
-
-              {description && (
-                <Text variant="bodySmall" numberOfLines={2} style={{ color: theme.colors.onSurfaceVariant, marginTop: 2, marginBottom: theme.spacing.xs }}>
-                  {description}
-                </Text>
-              )}
-
-              {metaRow}
-              <View style={{ marginTop: 2, marginRight: -6, marginBottom: -6 }}>
-                {actionIcons}
-              </View>
-            </View>
-          </View>
-        )}
-      </Card>
-    </Swipeable>
+          </Card>
+        </Reanimated.View>
+      </Swipeable>
+    </StaggerIn>
   );
 }

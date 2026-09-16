@@ -4,6 +4,7 @@ import { IconButton, Searchbar, Text } from "react-native-paper";
 
 import { useAppTheme } from "../hooks/useAppTheme";
 import type { HomeHeaderProps } from "../types/componentProps";
+import StaggerIn from "./StaggerIn";
 
 export default function HomeHeader({
   searchQuery,
@@ -22,47 +23,54 @@ export default function HomeHeader({
   return (
     <View
       style={{
-        backgroundColor: theme.colors.background,
+        // Transparent so AmbientBackground's drifting wash shows through here.
         paddingHorizontal: theme.spacing.md,
         paddingTop: theme.spacing.md,
         paddingBottom: theme.spacing.sm,
       }}
     >
       <View style={{ width: "100%", maxWidth: 960, alignSelf: "center" }}>
-        <Text
-          variant="labelMedium"
-          style={{
-            color: theme.colors.primary,
-            fontFamily: theme.fontFamily.bold,
-            letterSpacing: 1.2,
-            textTransform: "uppercase",
-          }}
-        >
-          {activeCollectionName ?? "Kişisel arşiv"}
-        </Text>
-        <Text
-          variant="headlineMedium"
-          style={{
-            color: theme.colors.onBackground,
-            fontFamily: theme.fontFamily.displayBold,
-            letterSpacing: -0.6,
-            marginTop: 2,
-          }}
-        >
-          Kaydettiklerin, tam burada.
-        </Text>
-        <Text
-          variant="bodyMedium"
-          style={{
-            color: theme.colors.onSurfaceVariant,
-            marginTop: theme.spacing.xs,
-            fontVariant: ["tabular-nums"],
-          }}
-        >
-          {resultSummary}
-        </Text>
+        <StaggerIn index={0}>
+          <Text
+            variant="labelMedium"
+            style={{
+              color: theme.colors.primary,
+              fontFamily: theme.fontFamily.bold,
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+            }}
+          >
+            {activeCollectionName ?? "Kişisel arşiv"}
+          </Text>
+        </StaggerIn>
+        <StaggerIn index={1}>
+          <Text
+            variant="headlineMedium"
+            style={{
+              color: theme.colors.onBackground,
+              fontFamily: theme.fontFamily.displayBold,
+              letterSpacing: -0.6,
+              marginTop: 2,
+            }}
+          >
+            Kaydettiklerin, tam burada.
+          </Text>
+        </StaggerIn>
+        <StaggerIn index={2}>
+          <Text
+            variant="bodyMedium"
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              marginTop: theme.spacing.xs,
+              fontVariant: ["tabular-nums"],
+            }}
+          >
+            {resultSummary}
+          </Text>
+        </StaggerIn>
 
-        <View
+        <StaggerIn
+          index={3}
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -112,7 +120,7 @@ export default function HomeHeader({
               borderRadius: theme.radius.md,
             }}
           />
-        </View>
+        </StaggerIn>
       </View>
     </View>
   );

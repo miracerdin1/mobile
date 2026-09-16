@@ -19,8 +19,10 @@ import { useAppTheme } from "../hooks/useAppTheme";
 import Config from "../constants/Config";
 import api from "../services/api";
 import { AuthScreenProps } from "../types";
+import AmbientBackground from "./AmbientBackground";
 import Logo from "./Logo";
 import PrimaryButton from "./PrimaryButton";
+import StaggerIn from "./StaggerIn";
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const theme = useAppTheme();
@@ -115,140 +117,146 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const styles = makeStyles(theme);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+    <AmbientBackground intensity="vivid">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
       >
-        <View style={styles.headerContainer}>
-          <Logo size={36} />
-          <Text style={styles.subtitleText}>
-            Tüm bağlantılarınızı tek bir yerde toplayın ve paylaşın
-          </Text>
-        </View>
-
-        <Surface style={styles.card} elevation={1}>
-          <Text style={styles.cardTitle}>
-            {isLogin ? "Giriş Yap" : "Kayıt Ol"}
-          </Text>
-
-          {error && (
-            <View style={styles.errorContainer} accessibilityRole="alert">
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          {!isLogin && (
-            <TextInput
-              label="Kullanıcı Adı"
-              value={username}
-              onChangeText={setUsername}
-              mode="outlined"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="username"
-              textContentType="username"
-              left={<TextInput.Icon icon="account-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.outlineVariant}
-              activeOutlineColor={theme.colors.primary}
-            />
-          )}
-
-          {!isLogin && (
-            <TextInput
-              label="E-Posta Adresi"
-              value={email}
-              onChangeText={setEmail}
-              mode="outlined"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              left={<TextInput.Icon icon="email-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.outlineVariant}
-              activeOutlineColor={theme.colors.primary}
-            />
-          )}
-
-          {isLogin && (
-            <TextInput
-              label="Kullanıcı Adı veya E-Posta"
-              value={emailOrUsername}
-              onChangeText={setEmailOrUsername}
-              mode="outlined"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="username"
-              left={<TextInput.Icon icon="account-box-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.outlineVariant}
-              activeOutlineColor={theme.colors.primary}
-            />
-          )}
-
-          <TextInput
-            label="Şifre"
-            value={password}
-            onChangeText={setPassword}
-            mode="outlined"
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete={isLogin ? "current-password" : "new-password"}
-            textContentType={isLogin ? "password" : "newPassword"}
-            left={<TextInput.Icon icon="lock-outline" />}
-            right={
-              <TextInput.Icon
-                icon={showPassword ? "eye-off" : "eye"}
-                onPress={() => setShowPassword(!showPassword)}
-                forceTextInputFocus={false}
-                accessibilityLabel={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
-              />
-            }
-            style={styles.input}
-            outlineColor={theme.colors.outlineVariant}
-            activeOutlineColor={theme.colors.primary}
-          />
-
-          <PrimaryButton
-            onPress={handleAuth}
-            disabled={loading}
-            style={{ marginTop: theme.spacing.xs }}
-          >
-            {loading ? (
-              <ActivityIndicator color={theme.colors.onPrimary} size={20} />
-            ) : isLogin ? (
-              "Giriş Yap"
-            ) : (
-              "Hesap Oluştur"
-            )}
-          </PrimaryButton>
-
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchText}>
-              {isLogin
-                ? "Henüz bir hesabınız yok mu? "
-                : "Zaten hesabınız var mı? "}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <StaggerIn index={0} style={styles.headerContainer}>
+            <Logo size={36} />
+            <Text style={styles.subtitleText}>
+              Tüm bağlantılarınızı tek bir yerde toplayın ve paylaşın
             </Text>
-            <TouchableOpacity onPress={toggleMode} accessibilityRole="button">
-              <Text style={styles.switchLink}>
-                {isLogin ? "Kayıt Olun" : "Giriş Yapın"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Surface>
+          </StaggerIn>
 
-        <Text style={styles.footerText}>
-          Ortak klasörler ile gerçek zamanlı iş birliği
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <StaggerIn index={1}>
+            <Surface style={styles.card} elevation={1}>
+              <Text style={styles.cardTitle}>
+                {isLogin ? "Giriş Yap" : "Kayıt Ol"}
+              </Text>
+
+              {error && (
+                <View style={styles.errorContainer} accessibilityRole="alert">
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              {!isLogin && (
+                <TextInput
+                  label="Kullanıcı Adı"
+                  value={username}
+                  onChangeText={setUsername}
+                  mode="outlined"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  textContentType="username"
+                  left={<TextInput.Icon icon="account-outline" />}
+                  style={styles.input}
+                  outlineColor={theme.colors.outlineVariant}
+                  activeOutlineColor={theme.colors.primary}
+                />
+              )}
+
+              {!isLogin && (
+                <TextInput
+                  label="E-Posta Adresi"
+                  value={email}
+                  onChangeText={setEmail}
+                  mode="outlined"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  left={<TextInput.Icon icon="email-outline" />}
+                  style={styles.input}
+                  outlineColor={theme.colors.outlineVariant}
+                  activeOutlineColor={theme.colors.primary}
+                />
+              )}
+
+              {isLogin && (
+                <TextInput
+                  label="Kullanıcı Adı veya E-Posta"
+                  value={emailOrUsername}
+                  onChangeText={setEmailOrUsername}
+                  mode="outlined"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  left={<TextInput.Icon icon="account-box-outline" />}
+                  style={styles.input}
+                  outlineColor={theme.colors.outlineVariant}
+                  activeOutlineColor={theme.colors.primary}
+                />
+              )}
+
+              <TextInput
+                label="Şifre"
+                value={password}
+                onChangeText={setPassword}
+                mode="outlined"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete={isLogin ? "current-password" : "new-password"}
+                textContentType={isLogin ? "password" : "newPassword"}
+                left={<TextInput.Icon icon="lock-outline" />}
+                right={
+                  <TextInput.Icon
+                    icon={showPassword ? "eye-off" : "eye"}
+                    onPress={() => setShowPassword(!showPassword)}
+                    forceTextInputFocus={false}
+                    accessibilityLabel={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+                  />
+                }
+                style={styles.input}
+                outlineColor={theme.colors.outlineVariant}
+                activeOutlineColor={theme.colors.primary}
+              />
+
+              <PrimaryButton
+                onPress={handleAuth}
+                disabled={loading}
+                style={{ marginTop: theme.spacing.xs }}
+              >
+                {loading ? (
+                  <ActivityIndicator color={theme.colors.onPrimary} size={20} />
+                ) : isLogin ? (
+                  "Giriş Yap"
+                ) : (
+                  "Hesap Oluştur"
+                )}
+              </PrimaryButton>
+
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchText}>
+                  {isLogin
+                    ? "Henüz bir hesabınız yok mu? "
+                    : "Zaten hesabınız var mı? "}
+                </Text>
+                <TouchableOpacity onPress={toggleMode} accessibilityRole="button">
+                  <Text style={styles.switchLink}>
+                    {isLogin ? "Kayıt Olun" : "Giriş Yapın"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Surface>
+          </StaggerIn>
+
+          <StaggerIn index={2}>
+            <Text style={styles.footerText}>
+              Ortak klasörler ile gerçek zamanlı iş birliği
+            </Text>
+          </StaggerIn>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </AmbientBackground>
   );
 }
 
@@ -256,7 +264,8 @@ const makeStyles = (theme: ReturnType<typeof useAppTheme>) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.colors.background,
+      // AmbientBackground paints the background behind this layer.
+      backgroundColor: "transparent",
     },
     scrollContent: {
       flexGrow: 1,

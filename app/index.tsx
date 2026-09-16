@@ -19,6 +19,7 @@ import {
   Text,
 } from "react-native-paper";
 import * as Notifications from "expo-notifications";
+import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
 import { useAuth } from "../context/AuthContext";
 import { connectSocket, disconnectSocket } from "../services/socket";
 
@@ -35,6 +36,9 @@ import LinkList from "../components/LinkList";
 import { PaywallModal } from "../components/PaywallModal";
 import AccountSettingsDialog from "../components/AccountSettingsDialog";
 import PrimaryButton from "../components/PrimaryButton";
+import AnimatedProgressBar from "../components/AnimatedProgressBar";
+import AmbientBackground from "../components/AmbientBackground";
+import { usePressAnimation } from "../hooks/usePressAnimation";
 import { manageStoreSubscription } from "../services/storeBilling";
 import { useAppTheme } from "../hooks/useAppTheme";
 
@@ -67,6 +71,12 @@ export default function Index() {
   const router = useRouter();
   const theme = useAppTheme();
   const navigation = useNavigation();
+  const reduceMotion = useReducedMotion();
+  const {
+    animatedStyle: fabAnimatedStyle,
+    pressHandlers: fabPressHandlers,
+    hoverHandlers: fabHoverHandlers,
+  } = usePressAnimation({ pressScale: 0.92, hoverScale: 1.06, hoverLift: 3 });
 
   // Authentication State
   const {
@@ -430,7 +440,7 @@ export default function Index() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    <AmbientBackground>
       <HomeHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -444,7 +454,6 @@ export default function Index() {
       {currentUser && (
         <View
           style={{
-            backgroundColor: theme.colors.background,
             paddingHorizontal: theme.spacing.md,
             paddingBottom: theme.spacing.md,
           }}
@@ -486,24 +495,11 @@ export default function Index() {
                     : `${links.length} / 30 bağlantı`}
               </Text>
               {!isPro && (
-                <View
-                  style={{
-                    height: 4,
-                    maxWidth: 220,
-                    marginTop: 6,
-                    overflow: "hidden",
-                    borderRadius: 2,
-                    backgroundColor: theme.colors.surfaceVariant,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: `${Math.min((links.length / 30) * 100, 100)}%`,
-                      height: "100%",
-                      backgroundColor: theme.colors.primary,
-                    }}
-                  />
-                </View>
+                <AnimatedProgressBar
+                  progress={links.length / 30}
+                  style={{ maxWidth: 220, marginTop: 6 }}
+                  accessibilityLabel={`30 bağlantılık kotanın ${links.length} tanesi dolu`}
+                />
               )}
             </View>
             {!isPro ? (
@@ -985,28 +981,47 @@ export default function Index() {
         onClearFilters={clearFilters}
       />
 
-      <FAB
-        icon="plus"
-        style={{
-          position: "absolute",
-          margin: theme.spacing.md,
-          right: 0,
-          bottom: 0,
-          zIndex: 10,
-          borderRadius: theme.radius.lg,
-        }}
-        color={theme.colors.onPrimary}
-        customSize={56}
-        theme={{ colors: { primaryContainer: theme.colors.primary } }}
-        accessibilityLabel="Yeni bağlantı ekle"
-        onPress={() => {
-          if (!isAuthenticated) {
-            router.push("/auth");
-          } else {
-            router.push("/add");
-          }
-        }}
-      />
+      <Animated.View
+        entering={
+          reduceMotion
+            ? undefined
+            : ZoomIn.springify()
+                .damping(theme.motion.springPop.damping)
+                .stiffness(theme.motion.springPop.stiffness)
+                .mass(theme.motion.springPop.mass)
+                .delay(theme.motion.slow)
+        }
+        style={[
+          {
+            position: "absolute",
+            margin: theme.spacing.md,
+            right: 0,
+            bottom: 0,
+            zIndex: 10,
+          },
+          fabAnimatedStyle,
+        ]}
+        {...fabHoverHandlers}
+      >
+        <FAB
+          icon="plus"
+          style={{ borderRadius: theme.radius.lg }}
+          color={theme.colors.onPrimary}
+          customSize={56}
+          theme={{ colors: { primaryContainer: theme.colors.primary } }}
+          accessibilityLabel="Yeni bağlantı ekle"
+          // Paper spreads unknown props onto the FAB's TouchableRipple, so the
+          // shared press handlers reach it even though its types omit them.
+          {...fabPressHandlers}
+          onPress={() => {
+            if (!isAuthenticated) {
+              router.push("/auth");
+            } else {
+              router.push("/add");
+            }
+          }}
+        />
+      </Animated.View>
 
       {/* Clipboard Prompt UI */}
       <ClipboardPrompt
@@ -1019,6 +1034,6 @@ export default function Index() {
         onSave={handleSaveClipboard}
         onDismiss={handleDismissClipboard}
       />
-    </View>
+    </AmbientBackground>
   );
 }

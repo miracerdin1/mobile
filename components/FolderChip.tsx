@@ -1,7 +1,9 @@
 import React from "react";
 import { Chip } from "react-native-paper";
+import Animated from "react-native-reanimated";
 
 import { useAppTheme } from "../hooks/useAppTheme";
+import { usePressAnimation } from "../hooks/usePressAnimation";
 import type { FolderChipProps } from "../types/componentProps";
 import { withAlpha } from "../utils/color";
 
@@ -21,6 +23,7 @@ export default function FolderChip({
   accessibilityLabel,
 }: FolderChipProps) {
   const theme = useAppTheme();
+  const { animatedStyle, pressHandlers } = usePressAnimation();
   const fill = color || theme.colors.primary;
 
   const selectedBg = color ? withAlpha(fill, "18") : theme.colors.primaryContainer;
@@ -28,31 +31,34 @@ export default function FolderChip({
   const selectedFg = color ? fill : theme.colors.onPrimaryContainer;
 
   return (
-    <Chip
-      selected={selected}
-      onPress={onPress}
-      icon={icon}
-      compact={compact}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected }}
-      showSelectedCheck={false}
-      style={{
-        marginRight: theme.spacing.sm,
-        backgroundColor: selected ? selectedBg : theme.colors.surface,
-        borderWidth: 1,
-        borderColor: selected ? selectedBorder : theme.colors.outlineVariant,
-        borderRadius: theme.radius.sm,
-        minHeight: compact ? 36 : 40,
-      }}
-      textStyle={{
-        color: selected ? selectedFg : theme.colors.onSurface,
-        fontFamily: selected ? theme.fontFamily.semibold : theme.fontFamily.medium,
-        fontSize: compact ? 12 : 13,
-      }}
-      // Tint the leading icon: folder color always, even when unselected.
-      theme={{ colors: { onSurfaceVariant: selected ? selectedFg : fill } }}
-    >
-      {label}
-    </Chip>
+    <Animated.View style={animatedStyle}>
+      <Chip
+        selected={selected}
+        onPress={onPress}
+        {...pressHandlers}
+        icon={icon}
+        compact={compact}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ selected }}
+        showSelectedCheck={false}
+        style={{
+          marginRight: theme.spacing.sm,
+          backgroundColor: selected ? selectedBg : theme.colors.surface,
+          borderWidth: 1,
+          borderColor: selected ? selectedBorder : theme.colors.outlineVariant,
+          borderRadius: theme.radius.sm,
+          minHeight: compact ? 36 : 40,
+        }}
+        textStyle={{
+          color: selected ? selectedFg : theme.colors.onSurface,
+          fontFamily: selected ? theme.fontFamily.semibold : theme.fontFamily.medium,
+          fontSize: compact ? 12 : 13,
+        }}
+        // Tint the leading icon: folder color always, even when unselected.
+        theme={{ colors: { onSurfaceVariant: selected ? selectedFg : fill } }}
+      >
+        {label}
+      </Chip>
+    </Animated.View>
   );
 }
