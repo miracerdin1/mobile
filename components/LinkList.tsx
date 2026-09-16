@@ -1,11 +1,13 @@
 import React, { useMemo } from "react";
-import { FlatList, RefreshControl, View } from "react-native";
+import { RefreshControl, View } from "react-native";
 import { ActivityIndicator, IconButton, Text } from "react-native-paper";
+import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
 
 import { useAppTheme } from "../hooks/useAppTheme";
 import type { LinkListProps } from "../types/componentProps";
 import LinkCard from "./LinkCard";
 import PrimaryButton from "./PrimaryButton";
+import StaggerIn from "./StaggerIn";
 
 export default function LinkList({
   loading,
@@ -26,6 +28,7 @@ export default function LinkList({
   onClearFilters,
 }: LinkListProps) {
   const theme = useAppTheme();
+  const reduceMotion = useReducedMotion();
   const isGrid = viewMode === "grid";
   const foldersById = useMemo(
     () => new Map(folders.map((folder) => [folder._id, folder])),
@@ -41,13 +44,16 @@ export default function LinkList({
   }
 
   return (
-    <FlatList
+    <Animated.FlatList
       // FlatList doesn't support changing numColumns on the fly — remounting
       // via `key` is the documented workaround.
       key={viewMode}
       data={filteredLinks}
       keyExtractor={(item) => item._id || item.url}
       numColumns={isGrid ? 2 : 1}
+      // Reanimated's item layout animation only supports single-column lists,
+      // so grid mode reorders instantly.
+      itemLayoutAnimation={isGrid || reduceMotion ? undefined : LinearTransition}
       initialNumToRender={10}
       windowSize={7}
       columnWrapperStyle={isGrid ? { paddingHorizontal: theme.spacing.sm } : undefined}
@@ -60,7 +66,7 @@ export default function LinkList({
           colors={[theme.colors.primary]}
         />
       }
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
         const folder = item.folderId ? foldersById.get(item.folderId) : undefined;
         return (
           <LinkCard
@@ -80,11 +86,12 @@ export default function LinkList({
             onRemind={() => onRemind(item)}
             hasReminder={reminders.some((r) => r.linkId === item._id)}
             layout={viewMode}
+            index={index}
           />
         );
       }}
       ListEmptyComponent={
-        <View style={[centerStyle, { paddingHorizontal: theme.spacing.xl }]}>
+        <StaggerIn style={[centerStyle, { paddingHorizontal: theme.spacing.xl }]}>
           <View
             style={{
               width: 64,
@@ -144,7 +151,7 @@ export default function LinkList({
               Giriş Yap
             </PrimaryButton>
           )}
-        </View>
+        </StaggerIn>
       }
     />
   );
