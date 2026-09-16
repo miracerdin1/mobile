@@ -147,4 +147,6 @@ export interface LinkCardProps {
   hasReminder?: boolean;
   /** "grid" renders a compact, image-forward card for a 2-column layout. */
   layout?: "list" | "grid";
+  /** Position in the list, used to stagger the entrance animation. */
+  index?: number;
 }
