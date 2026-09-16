@@ -37,11 +37,43 @@ export const radius = {
   full: 999,
 } as const;
 
-/** Durations in ms. Exit animations should use ~60-70% of the enter value. */
+/**
+ * Motion tokens.
+ *
+ * Durations are in ms; exit animations should use ~60-70% of the enter value.
+ * The spring configs are Reanimated `withSpring` configs and are the only
+ * springs the app should use — components must not invent their own, so press
+ * feedback feels identical everywhere (see components/PressableScale.tsx).
+ */
 export const motion = {
   fast: 150,
   base: 200,
   slow: 300,
+
+  /** Snappy, no visible overshoot — press/hover feedback on controls. */
+  springPress: { damping: 18, stiffness: 320, mass: 0.6 },
+  /** Soft landing with a hint of bounce — entrances and layout shifts. */
+  springEnter: { damping: 16, stiffness: 160, mass: 0.9 },
+  /** Loose and playful — the FAB and other "pop in" moments. */
+  springPop: { damping: 11, stiffness: 190, mass: 0.8 },
+
+  /** Delay between consecutive items in a staggered list entrance (ms). */
+  stagger: 45,
+  /**
+   * Cap on staggered items: past this index every item shares the same delay,
+   * so scrolling into item 200 never waits 9 seconds.
+   */
+  staggerMax: 8,
+
+  /** Scale a control shrinks to while pressed. */
+  pressScale: 0.96,
+  /** Scale a control grows to on pointer hover (web only). */
+  hoverScale: 1.02,
+  /** Pixels a card lifts on hover (web only). */
+  hoverLift: 2,
+
+  /** One full cycle of the ambient background gradient drift (ms). */
+  ambient: 9000,
 } as const;
 
 /** Minimum touch target (Apple HIG 44pt / Material 48dp). */
