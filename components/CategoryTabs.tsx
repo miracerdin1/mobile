@@ -8,18 +8,12 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+import { CATEGORY_LABELS } from "../constants";
 import { useAppTheme } from "../hooks/useAppTheme";
 import type { CategoryTabsProps } from "../types/componentProps";
 import PressableScale from "./PressableScale";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  All: "Tümü",
-  Video: "Video",
-  Article: "Makale",
-  Product: "Ürün",
-  Social: "Sosyal",
-  Other: "Diğer",
-};
+export { CATEGORY_LABELS };
 
 type TabLayout = { x: number; width: number };
 
@@ -30,6 +24,7 @@ export default function CategoryTabs({
   onManageCategories,
   viewMode,
   onToggleViewMode,
+  onOpenLibrary,
 }: CategoryTabsProps) {
   const theme = useAppTheme();
   const reduceMotion = useReducedMotion();
@@ -171,6 +166,14 @@ export default function CategoryTabs({
                 ? "Liste görünümüne geç"
                 : "Izgara görünümüne geç"
             }
+            style={{ margin: 0, width: 44, height: 44 }}
+          />
+          <IconButton
+            icon="bookshelf"
+            size={21}
+            iconColor={theme.colors.onSurfaceVariant}
+            onPress={onOpenLibrary}
+            accessibilityLabel="Kitaplığı aç"
             style={{ margin: 0, width: 44, height: 44 }}
           />
           <IconButton

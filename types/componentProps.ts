@@ -20,6 +20,7 @@ export interface CategoryTabsProps {
   onManageCategories: () => void;
   viewMode: ViewMode;
   onToggleViewMode: () => void;
+  onOpenLibrary: () => void;
 }
 
 export interface FolderListProps {
