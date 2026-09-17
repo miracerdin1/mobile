@@ -540,6 +540,7 @@ export default function Index() {
         onManageCategories={() => setManageCategoriesVisible(true)}
         viewMode={viewMode}
         onToggleViewMode={toggleViewMode}
+        onOpenLibrary={() => router.push("/library")}
       />
 
       <FolderList

@@ -1,13 +1,17 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
-import { Button, Switch, Text, TextInput } from "react-native-paper";
+import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
+import { Button, Menu, Switch, Text, TextInput } from "react-native-paper";
 
 import FolderChip from "../../components/FolderChip";
 import PrimaryButton from "../../components/PrimaryButton";
+import { CATEGORY_LABELS, DEFAULT_CATEGORIES } from "../../constants";
 import Config from "../../constants/Config";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import api from "../../services/api";
+
+/** "All" is a filter tab, not a category a link can belong to. */
+const CATEGORY_OPTIONS = DEFAULT_CATEGORIES.filter((c) => c !== "All");
 
 export default function EditLink() {
   const { id } = useLocalSearchParams();
@@ -20,6 +24,8 @@ export default function EditLink() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [isPublic, setIsPublic] = useState(false);
+  const [category, setCategory] = useState("Other");
+  const [categoryMenuVisible, setCategoryMenuVisible] = useState(false);
 
   // Folders State
   const [folders, setFolders] = useState<any[]>([]);
@@ -59,6 +65,7 @@ export default function EditLink() {
         setUrl(link.url || "");
         setSelectedFolderId(link.folderId || null);
         setIsPublic(link.isPublic || false);
+        setCategory(link.category || "Other");
       } else {
         Alert.alert("Hata", "Link bulunamadı");
         router.back();
@@ -79,6 +86,7 @@ export default function EditLink() {
         url,
         folderId: selectedFolderId === null ? "null" : selectedFolderId,
         isPublic,
+        category,
       });
       router.back();
     } catch (err) {
@@ -126,6 +134,49 @@ export default function EditLink() {
         activeOutlineColor={theme.colors.primary}
         style={{ marginBottom: theme.spacing.md }}
       />
+
+      <Menu
+        visible={categoryMenuVisible}
+        onDismiss={() => setCategoryMenuVisible(false)}
+        anchorPosition="bottom"
+        contentStyle={{ backgroundColor: theme.colors.surface }}
+        anchor={
+          <Pressable
+            onPress={() => setCategoryMenuVisible(true)}
+            // `TextInput.Icon` below already renders its own <button> on web; giving this
+            // Pressable accessibilityRole="button" too would nest <button> inside <button>
+            // (invalid HTML, breaks hydration). Native keeps the button role for screen readers.
+            accessibilityRole={Platform.OS === "web" ? undefined : "button"}
+            accessibilityLabel="Kategori seç"
+          >
+            {/* Read-only input so the select matches the fields above; the Pressable takes the tap. */}
+            <View pointerEvents="none">
+              <TextInput
+                label="Kategori"
+                value={CATEGORY_LABELS[category] ?? category}
+                mode="outlined"
+                editable={false}
+                right={<TextInput.Icon icon={categoryMenuVisible ? "chevron-up" : "chevron-down"} />}
+                outlineColor={theme.colors.outlineVariant}
+                activeOutlineColor={theme.colors.primary}
+                style={{ marginBottom: theme.spacing.md }}
+              />
+            </View>
+          </Pressable>
+        }
+      >
+        {CATEGORY_OPTIONS.map((option) => (
+          <Menu.Item
+            key={option}
+            title={CATEGORY_LABELS[option] ?? option}
+            leadingIcon={option === category ? "check" : undefined}
+            onPress={() => {
+              setCategory(option);
+              setCategoryMenuVisible(false);
+            }}
+          />
+        ))}
+      </Menu>
 
       <Text
         variant="titleMedium"

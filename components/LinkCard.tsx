@@ -4,6 +4,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { Card, Icon, IconButton, Text } from "react-native-paper";
 import Reanimated from "react-native-reanimated";
 
+import { CATEGORY_LABELS } from "../constants";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { usePressAnimation } from "../hooks/usePressAnimation";
 import StaggerIn from "./StaggerIn";
@@ -227,7 +228,7 @@ export default function LinkCard({
             fontFamily: theme.fontFamily.semibold,
           }}
         >
-          {category}
+          {CATEGORY_LABELS[category] ?? category}
         </Text>
       )}
     </View>
