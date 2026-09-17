@@ -10,6 +10,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -20,11 +22,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      # expo/expo-github-action's yarn-based eas-cli install has been flaky
+      # (fails with "yarn failed with exit code 1" on newer eas-cli/runner
+      # combos), so install eas-cli directly via npm instead.
       - name: Setup EAS CLI
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+        run: npm install --global eas-cli
 
       - name: Install dependencies
         run: npm ci
