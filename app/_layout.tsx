@@ -69,6 +69,10 @@ function AppNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           options={{ title: "Bağlantıyı Düzenle", presentation: "modal" }}
         />
         <Stack.Screen
+          name="library"
+          options={{ title: "Kitaplık" }}
+        />
+        <Stack.Screen
           name="auth"
           options={{ title: "Giriş", presentation: "modal", headerShown: false }}
         />

@@ -12,6 +12,29 @@ export const DEFAULT_CATEGORIES = [
   "Other",
 ];
 
+/** Turkish display names for the fixed category ids above. */
+export const CATEGORY_LABELS: Record<string, string> = {
+  All: "Tümü",
+  Video: "Video",
+  Article: "Makale",
+  Product: "Ürün",
+  Social: "Sosyal",
+  Other: "Diğer",
+};
+
+/**
+ * Accent per link category, used by the layered 3D archive. Kept separate from
+ * the semantic theme colors (teal = collaboration, ochre = Pro, green = public)
+ * so a category never reads as one of those states.
+ */
+export const CATEGORY_COLORS: Record<string, string> = {
+  Video: "#3157D5",
+  Article: "#2F6F89",
+  Product: "#B4652A",
+  Social: "#B23A7A",
+  Other: "#667085",
+};
+
 export const FOLDER_COLORS = [
   "#6200ee", // Purple
   "#ff5722", // Deep Orange

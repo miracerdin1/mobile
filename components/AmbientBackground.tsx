@@ -36,6 +36,10 @@ const OVERSCAN = 2.2;
  * (always-running) motion. Kept at low opacity so the editorial light palette
  * still reads as paper rather than as a gradient poster.
  *
+ * Deliberately not WebGL: this wraps the home screen, and a full-screen
+ * shader there cost more frame time than the list could spare. The GPU ink
+ * lives inside the library screen instead (components/library/InkBackdrop).
+ *
  * Freezes into a static gradient when the OS asks for reduced motion.
  */
 export default function AmbientBackground({
