@@ -1,0 +1,36 @@
+name: Deploy PWA to EAS Hosting
+
+# Runs whenever a commit lands on master — which is exactly what happens when
+# a PR is merged. No manual `expo export` + `eas deploy` needed anymore.
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npx expo export -p web
+
+      - name: Deploy to production
+        run: eas deploy --prod --non-interactive
