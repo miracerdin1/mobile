@@ -189,6 +189,9 @@ function ShelfLabel({ shelf, anchor }: { shelf: Shelf; anchor: SharedValue<Label
     opacity: anchor.value.visible ? 1 : 0,
     transform: [{ translateX: anchor.value.x }, { translateY: anchor.value.y - 14 }] as const,
   }));
+  // Continuation planks (a category spilling onto a second shelf) carry no
+  // label of their own — the first plank's pill already named the category.
+  if (!shelf.label) return null;
   return (
     <Animated.View style={[styles.label, style]}>
       <View
