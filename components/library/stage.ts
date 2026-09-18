@@ -11,6 +11,9 @@ export const SHELF = {
   margin: 0.6,
   /** A shelf is never narrower than this, so short folders still read as shelves. */
   minWidth: 6,
+  /** A category spills onto a new plank once a row would grow past this,
+   *  so one big folder never turns into an endless single-row pan. */
+  maxWidth: 10,
   bookGap: 0.06,
   bookDepth: 1.35,
   /** How far a pulled book slides toward the viewer, and how far it turns. */
@@ -103,7 +106,7 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
   }
   const newestFirst = (a: Link, b: Link) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
 
-  const rows = order
+  const categoryRows = order
     .filter((category) => byCategory.has(category))
     .map((category) => ({
       id: category,
@@ -113,19 +116,56 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
       links: (byCategory.get(category) ?? []).sort(newestFirst),
     }));
 
+  interface BookMeta {
+    link: Link;
+    width: number;
+    height: number;
+  }
+  interface PlankRow {
+    id: string;
+    category: string;
+    label: string;
+    color: string;
+    items: BookMeta[];
+  }
+
+  // A long category spills onto extra planks once a row would grow past
+  // SHELF.maxWidth, like a real shelf running out of room — this keeps any
+  // single row (and so any single horizontal pan) bounded. Only the first
+  // plank of a category carries its label; the rest read as its continuation.
+  const plankRows: PlankRow[] = [];
+  for (const row of categoryRows) {
+    const items: BookMeta[] = row.links.map((link) => {
+      const h = hash(link._id);
+      return { link, width: 0.34 + (h % 5) * 0.07, height: 1.55 + ((h >> 3) % 4) * 0.12 };
+    });
+    let chunk: BookMeta[] = [];
+    let cursor = 0;
+    let part = 0;
+    const flush = () => {
+      plankRows.push({ id: `${row.id}#${part}`, category: row.category, label: part === 0 ? row.label : "", color: row.color, items: chunk });
+      part += 1;
+      chunk = [];
+      cursor = 0;
+    };
+    for (const item of items) {
+      if (chunk.length && cursor + item.width + SHELF.margin * 2 > SHELF.maxWidth) flush();
+      chunk.push(item);
+      cursor += item.width + SHELF.bookGap;
+    }
+    if (chunk.length) flush();
+  }
+
   const shelves: Shelf[] = [];
   const books: Book[] = [];
   let maxWidth: number = SHELF.minWidth;
-  rows.forEach((row, shelfIndex) => {
-    const y = ((rows.length - 1) / 2 - shelfIndex) * SHELF.pitch;
+  plankRows.forEach((row, shelfIndex) => {
+    const y = ((plankRows.length - 1) / 2 - shelfIndex) * SHELF.pitch;
     const rowBooks: Book[] = [];
     let cursor = 0;
-    for (const link of row.links) {
-      const h = hash(link._id);
-      const width = 0.34 + (h % 5) * 0.07;
-      const height = 1.55 + ((h >> 3) % 4) * 0.12;
-      rowBooks.push({ link, shelfIndex, x: cursor + width / 2, width, height, color: row.color });
-      cursor += width + SHELF.bookGap;
+    for (const item of row.items) {
+      rowBooks.push({ link: item.link, shelfIndex, x: cursor + item.width / 2, width: item.width, height: item.height, color: row.color });
+      cursor += item.width + SHELF.bookGap;
     }
     const rowWidth = Math.max(SHELF.minWidth, cursor - SHELF.bookGap + SHELF.margin * 2);
     // Books start at the shelf's left edge, after the margin.
