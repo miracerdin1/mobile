@@ -315,14 +315,24 @@ export default function Index() {
             gap: theme.spacing.xs + 2,
           }}
         >
-          <IconButton
-            icon="account-cog-outline"
-            size={21}
-            onPress={() => setAccountSettingsVisible(true)}
-            iconColor={theme.colors.onSurfaceVariant}
-            accessibilityLabel="Hesap ayarları"
-            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
-          />
+          <View style={{ position: "relative" }}>
+            <IconButton
+              icon="account-cog-outline"
+              size={21}
+              onPress={() => setAccountSettingsVisible(true)}
+              iconColor={theme.colors.onSurfaceVariant}
+              accessibilityLabel="Hesap ayarları"
+              style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
+            />
+            {currentUser?.role === "admin" && (
+              // Admin status reads as a crown on the account icon rather than
+              // its own banner below the search bar. Flat, no backdrop — this
+              // pill is already tight, another circle behind it read as clutter.
+              <View pointerEvents="none" style={{ position: "absolute", top: 2, right: 3 }}>
+                <Icon source="crown" size={11} color={theme.app.warning} />
+              </View>
+            )}
+          </View>
           <IconButton
             icon="earth"
             size={21}
@@ -439,8 +449,11 @@ export default function Index() {
     );
   }
 
-  return (
-    <AmbientBackground>
+  // Scrolls away with the list (as the FlatList's ListHeaderComponent)
+  // instead of pinning above it — a fixed header left almost no room for
+  // the list on a short viewport, like a phone in landscape.
+  const listHeader = (
+    <View>
       <HomeHeader
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -450,8 +463,8 @@ export default function Index() {
         activeCollectionName={currentFolder?.name}
       />
 
-      {/* Plan & Quota Tracking Bar */}
-      {currentUser && (
+      {/* Plan & Quota Tracking Bar — admins get a crown on the account icon instead */}
+      {currentUser && currentUser.role !== "admin" && (
         <View
           style={{
             paddingHorizontal: theme.spacing.md,
@@ -488,11 +501,7 @@ export default function Index() {
                   fontFamily: theme.fontFamily.semibold,
                 }}
               >
-                {currentUser.role === "admin"
-                  ? "Yönetici hesabı"
-                  : isPro
-                    ? "Pro arşiv etkin"
-                    : `${links.length} / 30 bağlantı`}
+                {isPro ? "Pro arşiv etkin" : `${links.length} / 30 bağlantı`}
               </Text>
               {!isPro && (
                 <AnimatedProgressBar
@@ -686,7 +695,11 @@ export default function Index() {
           </TouchableOpacity>
         </View>
       )}
+    </View>
+  );
 
+  return (
+    <AmbientBackground>
       <Portal>
         {/* Account Settings Dialog */}
         <AccountSettingsDialog
@@ -949,6 +962,7 @@ export default function Index() {
       </Portal>
 
       <LinkList
+        header={listHeader}
         loading={loading}
         filteredLinks={filteredLinks}
         folders={folders}

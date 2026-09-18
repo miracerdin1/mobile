@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { StyleProp, TextStyle, ViewStyle } from "react-native";
 
 import type { Folder, Link, Reminder, User } from "./index";
@@ -69,6 +69,7 @@ export interface ClipboardPromptProps {
 }
 
 export interface LinkListProps {
+  header?: ReactElement | null;
   loading: boolean;
   filteredLinks: Link[];
   folders: Folder[];
