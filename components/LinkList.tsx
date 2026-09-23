@@ -4,6 +4,7 @@ import { ActivityIndicator, IconButton, Text } from "react-native-paper";
 import Animated, { LinearTransition, useReducedMotion } from "react-native-reanimated";
 
 import { useAppTheme } from "../hooks/useAppTheme";
+import { useJustSaved } from "../hooks/useJustSaved";
 import type { LinkListProps } from "../types/componentProps";
 import LinkCard from "./LinkCard";
 import PrimaryButton from "./PrimaryButton";
@@ -27,10 +28,12 @@ export default function LinkList({
   viewMode = "list",
   hasActiveFilters = false,
   onClearFilters,
+  onOpened,
 }: LinkListProps) {
   const theme = useAppTheme();
   const reduceMotion = useReducedMotion();
   const isGrid = viewMode === "grid";
+  const justSaved = useJustSaved();
   const foldersById = useMemo(
     () => new Map(folders.map((folder) => [folder._id, folder])),
     [folders],
@@ -49,6 +52,8 @@ export default function LinkList({
       // in landscape) a fixed header left almost no room for the list.
       ListHeaderComponent={header}
       data={filteredLinks}
+      // Re-render rows when a save starts or ends their highlight.
+      extraData={justSaved}
       keyExtractor={(item) => item._id || item.url}
       numColumns={isGrid ? 2 : 1}
       // Reanimated's item layout animation only supports single-column lists,
@@ -87,6 +92,8 @@ export default function LinkList({
             hasReminder={reminders.some((r) => r.linkId === item._id)}
             layout={viewMode}
             index={index}
+            highlight={justSaved?.id === item._id}
+            onOpened={onOpened ? () => onOpened(item) : undefined}
           />
         );
       }}

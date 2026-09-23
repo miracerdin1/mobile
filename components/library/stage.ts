@@ -1,5 +1,6 @@
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "../../constants";
 import type { Link } from "../../types";
+import { mixHex } from "../../utils/color";
 
 /** World-space dimensions of the shelving. */
 export const SHELF = {
@@ -51,7 +52,7 @@ export interface Book {
   x: number;
   width: number;
   height: number;
-  /** Spine colour when there is no cover image. */
+  /** Binding colour: this link's shade of its category colour. */
   color: string;
 }
 
@@ -80,11 +81,23 @@ export interface Library {
 /** Links whose category is missing or unknown shelve here. */
 export const FALLBACK_CATEGORY = "Other";
 
-const hash = (value: string) => {
+export const hash = (value: string) => {
   let h = 2166136261;
   for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 16777619);
   return h >>> 0;
 };
+
+/**
+ * A per-link shade of the category colour, so a shelf reads as separate
+ * books rather than one flat block. Uses hash bits the book size ignores.
+ */
+const bookTone = (color: string, h: number) => {
+  const r = ((h >>> 9) % 100) / 100;
+  return r < 0.5 ? mixHex(color, "#0E1422", r * 0.5) : mixHex(color, "#FFFFFF", (r - 0.5) * 0.45);
+};
+
+/** Catalogue number printed on the library card; stable per link. */
+export const catalogNumber = (linkId: string) => (hash(linkId) % 9000) + 1000;
 
 /**
  * Lays the archive out as shelving: one shelf per category in the user's
@@ -120,6 +133,7 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
     link: Link;
     width: number;
     height: number;
+    hash: number;
   }
   interface PlankRow {
     id: string;
@@ -137,7 +151,7 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
   for (const row of categoryRows) {
     const items: BookMeta[] = row.links.map((link) => {
       const h = hash(link._id);
-      return { link, width: 0.34 + (h % 5) * 0.07, height: 1.55 + ((h >> 3) % 4) * 0.12 };
+      return { link, width: 0.34 + (h % 5) * 0.07, height: 1.55 + ((h >> 3) % 4) * 0.12, hash: h };
     });
     let chunk: BookMeta[] = [];
     let cursor = 0;
@@ -164,7 +178,14 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
     const rowBooks: Book[] = [];
     let cursor = 0;
     for (const item of row.items) {
-      rowBooks.push({ link: item.link, shelfIndex, x: cursor + item.width / 2, width: item.width, height: item.height, color: row.color });
+      rowBooks.push({
+        link: item.link,
+        shelfIndex,
+        x: cursor + item.width / 2,
+        width: item.width,
+        height: item.height,
+        color: bookTone(row.color, item.hash),
+      });
       cursor += item.width + SHELF.bookGap;
     }
     const rowWidth = Math.max(SHELF.minWidth, cursor - SHELF.bookGap + SHELF.margin * 2);

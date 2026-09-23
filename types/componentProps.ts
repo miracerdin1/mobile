@@ -1,5 +1,5 @@
-import type { ReactElement, ReactNode } from "react";
-import type { StyleProp, TextStyle, ViewStyle } from "react-native";
+import type { ReactElement, ReactNode, Ref } from "react";
+import type { StyleProp, TextStyle, View, ViewStyle } from "react-native";
 
 import type { Folder, Link, Reminder, User } from "./index";
 import type { ViewMode } from "./viewMode";
@@ -21,6 +21,10 @@ export interface CategoryTabsProps {
   viewMode: ViewMode;
   onToggleViewMode: () => void;
   onOpenLibrary: () => void;
+  /** Links per category (and "All"), shown next to each tab label. */
+  counts?: Record<string, number>;
+  /** The latest save: its category tab (and "All") hops once per nonce. */
+  bump?: { category: string; nonce: number } | null;
 }
 
 export interface FolderListProps {
@@ -66,9 +70,15 @@ export interface ClipboardPromptProps {
   savingClipboard: boolean;
   onSave: () => Promise<void>;
   onDismiss: () => Promise<void>;
+  /** Set once the save succeeds: the card shows the saved link instead of the URL. */
+  savedLink?: Link | null;
+  /** The card's box, measured as the start of the fly-to-tab animation. */
+  cardRef?: Ref<View>;
 }
 
 export interface LinkListProps {
+  /** A link was opened from the list (records it for the forgotten wheel). */
+  onOpened?: (link: Link) => void;
   header?: ReactElement | null;
   loading: boolean;
   filteredLinks: Link[];

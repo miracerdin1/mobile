@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter, useNavigation } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Linking,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -30,7 +31,12 @@ import CollaborationDialog from "../components/CollaborationDialog";
 import ReminderDialog from "../components/ReminderDialog";
 import ClipboardPrompt from "../components/ClipboardPrompt";
 import HomeHeader from "../components/HomeHeader";
-import CategoryTabs from "../components/CategoryTabs";
+import CategoryTabs, { type CategoryTabsHandle, type TabRect } from "../components/CategoryTabs";
+import SaveFlight, { type SaveFlightPlan } from "../components/SaveFlight";
+import ForgottenWheel from "../components/ForgottenWheel";
+import { recordLinkActivity } from "../services/linkActivity";
+import { selectForgotten } from "../utils/forgotten";
+import { RECAP_ROUTE, scheduleWeeklyRecap } from "../utils/recapNotification";
 import FolderList from "../components/FolderList";
 import LinkList from "../components/LinkList";
 import { PaywallModal } from "../components/PaywallModal";
@@ -45,6 +51,7 @@ import { useAppTheme } from "../hooks/useAppTheme";
 // Import modular hooks
 import { useProfile } from "../hooks/useProfile";
 import { useClipboardPoller } from "../hooks/useClipboardPoller";
+import { markJustSaved, useJustSaved } from "../hooks/useJustSaved";
 import { useReminders } from "../hooks/useReminders";
 import { useFolders } from "../hooks/useFolders";
 import { useLinks } from "../hooks/useLinks";
@@ -52,6 +59,7 @@ import { useCategories } from "../hooks/useCategories";
 import { useAccountDeletion } from "../hooks/useAccountDeletion";
 import { useViewMode } from "../hooks/useViewMode";
 import { filterLinks } from "../utils/linkFilters";
+import type { Link } from "../types";
 import { showAlert } from "../utils/alert";
 import { normalizeHttpUrl } from "../utils/url";
 
@@ -186,6 +194,59 @@ export default function Index() {
   } = useProfile();
 
   // 5. Clipboard Poller Hook
+  // A clipboard save plays out in three beats: the prompt turns into the
+  // saved link, the link flies to its category tab, the tab hops and the new
+  // row glows (see SaveFlight, CategoryTabs `bump`, useJustSaved).
+  const tabsRef = useRef<CategoryTabsHandle>(null);
+  const promptCardRef = useRef<View>(null);
+  const finishClipboardSaveRef = useRef<() => void>(() => {});
+  const [saveFlight, setSaveFlight] = useState<SaveFlightPlan | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+
+  const handleClipboardSaved = useCallback(
+    async (link: Link) => {
+      // The list refreshes when the card lands, so the count and the new row
+      // change at the moment the link arrives rather than before it.
+      const land = () => {
+        fetchLinks();
+        markJustSaved(link);
+      };
+      const finish = () => finishClipboardSaveRef.current();
+      if (reduceMotion) {
+        finish();
+        land();
+        return;
+      }
+      // Let the prompt show the saved link for a beat before it takes off.
+      await new Promise((resolve) => setTimeout(resolve, 420));
+      const from = await new Promise<TabRect | null>((resolve) => {
+        const node = promptCardRef.current;
+        if (!node) return resolve(null);
+        node.measureInWindow((x, y, width, height) => resolve(width ? { x, y, width, height } : null));
+      });
+      const onScreen = (rect: TabRect | null) => !!rect && rect.x >= 0 && rect.x + rect.width <= windowWidth;
+      let to = (await tabsRef.current?.measureTab(link.category || "Other")) ?? null;
+      // A tab scrolled out of view, or a category without a tab: land on "All".
+      if (!onScreen(to)) to = (await tabsRef.current?.measureTab("All")) ?? null;
+      if (!from || !to) {
+        finish();
+        land();
+        return;
+      }
+      setSaveFlight({ from, to, link });
+      finish();
+    },
+    [fetchLinks, reduceMotion, windowWidth],
+  );
+
+  const handleFlightDone = useCallback(() => {
+    if (saveFlight) {
+      fetchLinks();
+      markJustSaved(saveFlight.link);
+    }
+    setSaveFlight(null);
+  }, [fetchLinks, saveFlight]);
+
   const {
     clipboardUrl,
     showClipboardPrompt,
@@ -195,7 +256,11 @@ export default function Index() {
     handleSaveClipboard,
     handleDismissClipboard,
     checkClipboard,
-  } = useClipboardPoller(fetchLinks);
+    clipboardSavedLink,
+    finishClipboardSave,
+  } = useClipboardPoller(handleClipboardSaved);
+  finishClipboardSaveRef.current = finishClipboardSave;
+  const justSaved = useJustSaved();
 
   // 6. Reminders Hook
   const {
@@ -239,7 +304,12 @@ export default function Index() {
     if (Platform.OS !== "web") {
       const responseSubscription =
         Notifications.addNotificationResponseReceivedListener((response) => {
-          const url = response.notification.request.content.data?.url;
+          const { url, route } = response.notification.request.content.data ?? {};
+          // The weekly recap reminder opens a screen, not a link.
+          if (route === RECAP_ROUTE) {
+            router.push(RECAP_ROUTE);
+            return;
+          }
           if (typeof url === "string") {
             const safeUrl = normalizeHttpUrl(url);
             if (!safeUrl) return;
@@ -254,7 +324,13 @@ export default function Index() {
         responseSubscription.remove();
       };
     }
-  }, []);
+  }, [router]);
+
+  // Keeps the Sunday recap reminder in place when notifications are already
+  // allowed; it never asks for permission here (the recap's last page does).
+  useEffect(() => {
+    if (isAuthenticated) scheduleWeeklyRecap(false);
+  }, [isAuthenticated]);
 
   const handleLogout = useCallback(async () => {
     console.log("[Logout] handleLogout triggered");
@@ -333,6 +409,14 @@ export default function Index() {
               </View>
             )}
           </View>
+          <IconButton
+            icon="chart-timeline-variant"
+            size={21}
+            onPress={() => router.push(RECAP_ROUTE)}
+            iconColor={theme.colors.onSurfaceVariant}
+            accessibilityLabel="Haftalık özet"
+            style={{ margin: 0, padding: 0, width: 36, height: 36, justifyContent: "center", alignItems: "center" }}
+          />
           <IconButton
             icon="earth"
             size={21}
@@ -416,6 +500,52 @@ export default function Index() {
         selectedFolderId,
       }),
     [links, searchQuery, selectedCategory, selectedFolderId],
+  );
+
+  // Per-tab counts honour the folder and search filters, not the category one.
+  const categoryCounts = useMemo(() => {
+    const scoped = filterLinks(links, { searchQuery, selectedCategory: "All", selectedFolderId });
+    const counts: Record<string, number> = { All: scoped.length };
+    for (const link of scoped) {
+      const key = link.category || "Other";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [links, searchQuery, selectedFolderId]);
+
+  // Forgotten links wheel: the user's own old, unopened links. Opening or
+  // dismissing one records it on the server and drops it from the wheel at once.
+  const forgottenLinks = useMemo(() => selectForgotten(links, currentUser?.id), [links, currentUser?.id]);
+  const patchLink = useCallback(
+    (id: string, patch: Partial<Link>) => setLinks((prev) => prev.map((l) => (l._id === id ? { ...l, ...patch } : l))),
+    [setLinks],
+  );
+  const handleLinkOpened = useCallback(
+    (link: Link) => {
+      recordLinkActivity(link._id, "opened");
+      patchLink(link._id, { openedAt: new Date().toISOString() });
+    },
+    [patchLink],
+  );
+  const openForgotten = useCallback(
+    (link: Link) => {
+      const safeUrl = normalizeHttpUrl(link.url);
+      if (!safeUrl) {
+        showAlert("Geçersiz bağlantı", "Bu bağlantı güvenli bir şekilde açılamıyor.");
+        return;
+      }
+      Linking.openURL(safeUrl)
+        .then(() => handleLinkOpened(link))
+        .catch(() => showAlert("Hata", "Bağlantı açılamadı."));
+    },
+    [handleLinkOpened],
+  );
+  const dismissForgotten = useCallback(
+    (link: Link) => {
+      recordLinkActivity(link._id, "dismissed");
+      patchLink(link._id, { dismissedAt: new Date().toISOString() });
+    },
+    [patchLink],
   );
 
   const hasActiveFilters =
@@ -542,7 +672,14 @@ export default function Index() {
         </View>
       )}
 
+      {isAuthenticated && !hasActiveFilters && (
+        <ForgottenWheel links={forgottenLinks} onOpen={openForgotten} onDismiss={dismissForgotten} />
+      )}
+
       <CategoryTabs
+        ref={tabsRef}
+        counts={categoryCounts}
+        bump={justSaved ? { category: justSaved.category, nonce: justSaved.nonce } : null}
         categories={categories}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
@@ -970,6 +1107,7 @@ export default function Index() {
         onRefresh={onRefresh}
         handleDelete={handleDelete}
         onEdit={(id) => router.push(`/edit/${id}`)}
+        onOpened={handleLinkOpened}
         onRemind={(item) => {
           setSelectedReminderLink(item);
           setReminderDialogVisible(true);
@@ -1048,7 +1186,10 @@ export default function Index() {
         savingClipboard={savingClipboard}
         onSave={handleSaveClipboard}
         onDismiss={handleDismissClipboard}
+        savedLink={clipboardSavedLink}
+        cardRef={promptCardRef}
       />
+      {saveFlight && <SaveFlight plan={saveFlight} onDone={handleFlightDone} />}
     </AmbientBackground>
   );
 }
