@@ -9,7 +9,9 @@ import PrimaryButton from "../components/PrimaryButton";
 import FolderChip from "../components/FolderChip";
 import Config from "../constants/Config";
 import { useAppTheme } from "../hooks/useAppTheme";
+import { markJustSaved } from "../hooks/useJustSaved";
 import api from "../services/api";
+import type { Link } from "../types";
 import type { DuplicateLink } from "../types/addLink";
 import { extractHttpUrl, normalizeHttpUrl } from "../utils/url";
 import { showAlert } from "../utils/alert";
@@ -96,11 +98,13 @@ export default function AddLink() {
     setError("");
 
     try {
-      await api.post(`${Config.API_URL}/api/links`, {
+      const response = await api.post<Link>(`${Config.API_URL}/api/links`, {
         url: normalizedUrl,
         folderId: selectedFolderId,
         isPublic,
       });
+      // Home greets the new link with a tab hop and a highlighted row.
+      markJustSaved(response.data);
 
       showAlert("Başarılı", "Link başarıyla eklendi!");
       if (Platform.OS === "web") {

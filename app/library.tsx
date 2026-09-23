@@ -1,16 +1,20 @@
 import { useRouter } from "expo-router";
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Button, IconButton, Surface, Text } from "react-native-paper";
+import { ActivityIndicator, Button, Text } from "react-native-paper";
 import Animated, { FadeIn, FadeInDown, FadeOut, FadeOutDown, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import LibraryCard from "../components/library/LibraryCard";
 import { buildLibrary } from "../components/library/stage";
 import PrimaryButton from "../components/PrimaryButton";
+import { CATEGORY_LABELS } from "../constants";
 import { useAuth } from "../context/AuthContext";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useArchiveData } from "../hooks/useArchiveData";
 import { useCategories } from "../hooks/useCategories";
+import { recordLinkActivity } from "../services/linkActivity";
+import type { Link } from "../types";
 import { showAlert } from "../utils/alert";
 import { normalizeHttpUrl } from "../utils/url";
 
@@ -47,13 +51,15 @@ export default function LibraryScreen() {
   const book = pulled !== null ? library.books[pulled] : null;
   const shelf = book ? library.shelves[book.shelfIndex] : null;
 
-  const openLink = useCallback((url: string) => {
-    const safeUrl = normalizeHttpUrl(url);
+  const openLink = useCallback((link: Link) => {
+    const safeUrl = normalizeHttpUrl(link.url);
     if (!safeUrl) {
       showAlert("Hata", "Bu bağlantı açılamıyor.");
       return;
     }
-    Linking.openURL(safeUrl).catch(() => showAlert("Hata", "Bağlantı açılamadı."));
+    Linking.openURL(safeUrl)
+      .then(() => recordLinkActivity(link._id, "opened"))
+      .catch(() => showAlert("Hata", "Bağlantı açılamadı."));
   }, []);
 
   const centered = (children: React.ReactNode) => (
@@ -133,7 +139,7 @@ export default function LibraryScreen() {
             exiting={reduceMotion ? undefined : FadeOut.duration(theme.motion.fast)}
           >
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-              Yana kaydır: raf boyunca · yukarı/aşağı: raflar arası · kitaba dokun: çek
+              Kaydırarak raflarda gez, kitaba dokunup çek.
             </Text>
           </Animated.View>
         )}
@@ -141,54 +147,19 @@ export default function LibraryScreen() {
 
       {book && (
         <Animated.View
-          entering={reduceMotion ? undefined : FadeInDown.duration(theme.motion.base)}
+          key={book.link._id}
+          entering={reduceMotion ? undefined : FadeInDown.duration(theme.motion.slow)}
           exiting={reduceMotion ? undefined : FadeOutDown.duration(theme.motion.fast)}
           style={[styles.cardWrap, { bottom: insets.bottom + theme.spacing.md }]}
         >
-          <Surface
-            elevation={2}
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.colors.surface,
-                borderRadius: theme.radius.lg,
-                borderColor: theme.colors.outlineVariant,
-                padding: theme.spacing.md,
-              },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[styles.swatch, { backgroundColor: book.color }]} />
-              <Text
-                variant="labelMedium"
-                numberOfLines={1}
-                style={{ color: theme.colors.onSurfaceVariant, fontFamily: theme.fontFamily.medium, flex: 1 }}
-              >
-                {[shelf?.label, book.link.siteName].filter(Boolean).join(" · ")}
-              </Text>
-              <IconButton icon="close" size={18} onPress={() => setPulled(null)} accessibilityLabel="Kitabı yerine koy" style={{ margin: -8 }} />
-            </View>
-            <Text
-              variant="titleMedium"
-              numberOfLines={2}
-              style={{ color: theme.colors.onSurface, fontFamily: theme.fontFamily.display, marginTop: 2 }}
-            >
-              {book.link.title?.trim() || book.link.siteName || book.link.url}
-            </Text>
-            <View style={[styles.actions, { marginTop: theme.spacing.sm }]}>
-              <Button
-                mode="text"
-                icon="pencil-outline"
-                textColor={theme.colors.onSurfaceVariant}
-                onPress={() => router.push(`/edit/${book.link._id}`)}
-              >
-                Düzenle
-              </Button>
-              <PrimaryButton compact icon="open-in-new" onPress={() => openLink(book.link.url)}>
-                Aç
-              </PrimaryButton>
-            </View>
-          </Surface>
+          <LibraryCard
+            link={book.link}
+            shelfLabel={shelf ? CATEGORY_LABELS[shelf.category] ?? shelf.category : null}
+            onClose={() => setPulled(null)}
+            onEdit={() => router.push(`/edit/${book.link._id}`)}
+            onOpen={() => openLink(book.link)}
+            tilt={!reduceMotion}
+          />
         </Animated.View>
       )}
     </View>
@@ -201,8 +172,4 @@ const styles = StyleSheet.create({
   emptyTitle: { marginBottom: 8, textAlign: "center" },
   top: { position: "absolute", top: 0, left: 0, right: 0 },
   cardWrap: { position: "absolute", left: 16, right: 16, alignItems: "flex-start" },
-  card: { borderWidth: 1, width: "100%", maxWidth: 520 },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  swatch: { width: 10, height: 10, borderRadius: 5 },
-  actions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 8 },
 });

@@ -73,6 +73,10 @@ function AppNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           options={{ title: "Kitaplık" }}
         />
         <Stack.Screen
+          name="recap"
+          options={{ title: "Haftalık özet", headerShown: false, presentation: "fullScreenModal", animation: "fade" }}
+        />
+        <Stack.Screen
           name="auth"
           options={{ title: "Giriş", presentation: "modal", headerShown: false }}
         />
