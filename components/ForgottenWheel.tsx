@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Button, Icon, Text } from "react-native-paper";
@@ -20,6 +20,7 @@ import { CATEGORY_LABELS } from "../constants";
 import { useAppTheme } from "../hooks/useAppTheme";
 import type { Link } from "../types";
 import { daysSince } from "../utils/forgotten";
+import { siteLabel } from "../utils/url";
 import PrimaryButton from "./PrimaryButton";
 
 /**
@@ -28,9 +29,11 @@ import PrimaryButton from "./PrimaryButton";
  * and the front card can be opened or dismissed; either way it leaves the
  * wheel (the parent drops it from `links`).
  *
- * React Native has no translateZ, so each card's place on the ring is
- * projected by hand: x = R·sinθ scaled by perspective, cards past the sides
- * fade out the way backfaces would.
+ * Laid out as a cover flow rather than a closed ring: a ring sized to the
+ * card count collapsed with few cards (side cards stood edge-on behind the
+ * front one). Here spacing is fixed; each card's place is its distance from
+ * the front in card units, wrapped around so the wheel still loops, and
+ * cards fade out before they wrap.
  *
  * All gesture state lives in shared values: the Reanimated babel plugin
  * workletizes RNGH callbacks and copies plain closure variables by value.
@@ -42,18 +45,17 @@ export interface ForgottenWheelProps {
   onDismiss: (link: Link) => void;
 }
 
-const CARD_W = 148;
-const CARD_H = 212;
-const GAP = 18;
-const PERSPECTIVE = 620;
-/** Radians of spin per dragged pixel. */
-const DRAG = 0.006;
+const CARD_W = 156;
+const CARD_H = 220;
+/** Horizontal distance between neighbouring cards' centres. */
+const SPACING = 112;
+/** How far side cards turn inward, per card of distance. */
+const TURN_DEG = 38;
+/** Card units of travel per dragged pixel. */
+const DRAG = 1 / 150;
 const AUTO_EVERY_MS = 3200;
 /** No auto-turn for this long after the user touched the wheel. */
 const IDLE_MS = 5000;
-
-const stepFor = (n: number) => (2 * Math.PI) / Math.max(n, 3);
-const radiusFor = (n: number) => (CARD_W + GAP) / (2 * Math.tan(Math.PI / Math.max(n, 3)));
 
 export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWheelProps) {
   const theme = useAppTheme();
@@ -67,10 +69,11 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
     }, []),
   );
   const n = links.length;
+  // Two cards cannot loop without one jumping across the front, so they just slide.
+  const loops = n >= 3;
 
-  const angle = useSharedValue(0);
-  const step = useSharedValue(stepFor(n));
-  const radius = useSharedValue(radiusFor(n));
+  /** Position of the wheel in card units: card i sits at i + offset (0 = front). */
+  const offset = useSharedValue(0);
   const dragStart = useSharedValue(0);
   const leaving = useSharedValue(0);
   const [front, setFront] = useState(0);
@@ -80,25 +83,30 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
   // Set only when the user cleared the last card here, not when there were none to begin with.
   const emptiedHere = useRef(false);
 
-  // The ring re-spaces smoothly when a card leaves, keeping the same card in front.
-  useEffect(() => {
-    const target = Math.min(front, Math.max(n - 1, 0));
-    const duration = reduceMotion ? 0 : 450;
-    step.value = withTiming(stepFor(n), { duration });
-    radius.value = withTiming(radiusFor(n), { duration });
-    angle.value = withTiming(-target * stepFor(n), { duration });
-    leaving.value = 0;
-    setLeavingId(null);
+  // When a card leaves, the next one slides into the front from where it stood.
+  useLayoutEffect(() => {
+    const removed = n < previousCount.current;
     if (n === 0 && previousCount.current > 0) emptiedHere.current = true;
     previousCount.current = n;
-    // `front` is read, not tracked: only a change in the number of cards re-spaces.
+    leaving.value = 0;
+    setLeavingId(null);
+    if (!n) return;
+    const target = Math.min(front, n - 1);
+    if (removed && !reduceMotion) {
+      // The new front card was one step to the right (or left, if the last card left).
+      offset.value = (target === front ? 1 : -1) - target;
+      offset.value = withTiming(-target, { duration: 420, easing: Easing.bezier(0.2, 0.7, 0.2, 1) });
+    } else {
+      offset.value = -target;
+    }
+    // `front` is read, not tracked: only a change in the number of cards re-seats the wheel.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [n]);
 
   useAnimatedReaction(
     () => {
       const count = Math.max(n, 1);
-      return (((Math.round(-angle.value / step.value) % count) + count) % count);
+      return ((Math.round(-offset.value) % count) + count) % count;
     },
     (index, previous) => {
       if (index !== previous) runOnJS(setFront)(index);
@@ -111,13 +119,13 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
     if (reduceMotion || !focused || n < 2) return;
     const timer = setInterval(() => {
       if (Date.now() - lastTouch.current < IDLE_MS || leavingId) return;
-      angle.value = withTiming(Math.round(angle.value / step.value) * step.value - step.value, {
-        duration: 750,
-        easing: Easing.bezier(0.2, 0.7, 0.2, 1),
-      });
+      const at = Math.round(offset.value);
+      // Without a loop, the wheel runs back to the first card after the last.
+      const next = !loops && -at >= n - 1 ? 0 : at - 1;
+      offset.value = withTiming(next, { duration: 750, easing: Easing.bezier(0.2, 0.7, 0.2, 1) });
     }, AUTO_EVERY_MS);
     return () => clearInterval(timer);
-  }, [angle, focused, leavingId, n, reduceMotion, step]);
+  }, [focused, leavingId, loops, n, offset, reduceMotion]);
 
   const touched = useCallback(() => {
     lastTouch.current = Date.now();
@@ -128,15 +136,16 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
     .failOffsetY([-14, 14])
     .enabled(n > 1)
     .onStart(() => {
-      dragStart.value = angle.value;
+      dragStart.value = offset.value;
       runOnJS(touched)();
     })
     .onUpdate((e) => {
-      angle.value = dragStart.value + e.translationX * DRAG;
+      offset.value = dragStart.value + e.translationX * DRAG;
     })
     .onEnd((e) => {
-      const flung = angle.value + e.velocityX * DRAG * 0.12;
-      angle.value = withSpring(Math.round(flung / step.value) * step.value, { damping: 18, stiffness: 140 });
+      let target = Math.round(offset.value + e.velocityX * DRAG * 0.15);
+      if (!loops) target = Math.min(0, Math.max(-(n - 1), target));
+      offset.value = withSpring(target, { damping: 18, stiffness: 140 });
       runOnJS(touched)();
     });
 
@@ -167,6 +176,10 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
     );
   }
 
+  const caption = current
+    ? [siteLabel(current), CATEGORY_LABELS[current.category ?? ""] ?? current.category].filter(Boolean).join(", ")
+    : "";
+
   return (
     <View style={styles.wrap} accessibilityLabel="Unuttukların">
       <View style={{ paddingHorizontal: theme.spacing.md, gap: 2 }}>
@@ -185,9 +198,9 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
               key={link._id}
               link={link}
               index={i}
-              angle={angle}
-              step={step}
-              radius={radius}
+              count={n}
+              loops={loops}
+              offset={offset}
               leaving={leaving}
               isLeaving={link._id === leavingId}
             />
@@ -201,7 +214,7 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
             {daysSince(current.createdAt, Date.now())} gün önce kaydettin
           </Text>
           <Text variant="labelSmall" numberOfLines={1} style={{ color: theme.colors.onSurfaceVariant }}>
-            {[current.siteName, CATEGORY_LABELS[current.category ?? ""] ?? current.category].filter(Boolean).join(", ")}
+            {caption}
           </Text>
         </View>
       )}
@@ -227,41 +240,47 @@ export default function ForgottenWheel({ links, onOpen, onDismiss }: ForgottenWh
 function WheelCard({
   link,
   index,
-  angle,
-  step,
-  radius,
+  count,
+  loops,
+  offset,
   leaving,
   isLeaving,
 }: {
   link: Link;
   index: number;
-  angle: SharedValue<number>;
-  step: SharedValue<number>;
-  radius: SharedValue<number>;
+  count: number;
+  loops: boolean;
+  offset: SharedValue<number>;
   leaving: SharedValue<number>;
   isLeaving: boolean;
 }) {
   const theme = useAppTheme();
+  const site = siteLabel(link);
+  const title = link.title?.trim() || site || link.url;
+  // A title that is just the site name adds nothing; the description can use the room.
+  const description = link.description?.trim();
+  const showSite = !!site && site.toLocaleLowerCase("tr-TR") !== title.toLocaleLowerCase("tr-TR");
 
   const style = useAnimatedStyle(() => {
-    // θ in (-π, π]: 0 is the front of the ring.
-    let theta = (index * step.value + angle.value) % (2 * Math.PI);
-    if (theta > Math.PI) theta -= 2 * Math.PI;
-    if (theta <= -Math.PI) theta += 2 * Math.PI;
-    const depth = Math.cos(theta);
-    const r = radius.value;
-    const scale = PERSPECTIVE / (PERSPECTIVE + r * (1 - depth));
+    // Distance from the front in card units; wrapped into (-count/2, count/2] when looping.
+    let pos = index + offset.value;
+    if (loops) {
+      pos = ((pos % count) + count) % count;
+      if (pos > count / 2) pos -= count;
+    }
+    const d = Math.abs(pos);
     const out = isLeaving ? leaving.value : 0;
     return {
-      opacity: interpolate(depth, [-0.05, 0.35, 1], [0, 0.55, 1], "clamp") * (1 - out),
-      zIndex: Math.round(depth * 100),
+      // Gone by 1.5 cards out, so a card never visibly jumps when it wraps around.
+      opacity: interpolate(d, [0, 1, 1.5], [1, 0.62, 0], "clamp") * (1 - out),
+      zIndex: Math.round(100 - d * 10),
       transform: [
         { perspective: 900 },
-        { translateX: r * Math.sin(theta) * scale },
+        { translateX: pos * SPACING },
         { translateY: out * 60 },
-        { rotateY: `${theta}rad` },
+        { rotateY: `${interpolate(pos, [-2, 0, 2], [TURN_DEG * 2, 0, -TURN_DEG * 2], "clamp")}deg` },
         { rotateZ: `${out * -8}deg` },
-        { scale },
+        { scale: interpolate(d, [0, 1, 2], [1, 0.84, 0.7], "clamp") },
       ] as const,
     };
   });
@@ -281,19 +300,32 @@ function WheelCard({
       ]}
     >
       {link.imageUrl ? (
-        <Image source={{ uri: link.imageUrl }} style={[styles.image, { backgroundColor: theme.app.imagePlaceholder }]} resizeMode="cover" />
+        <Image
+          source={{ uri: link.imageUrl }}
+          style={[styles.image, !description && styles.imageTall, { backgroundColor: theme.app.imagePlaceholder }]}
+          resizeMode="cover"
+        />
       ) : (
-        <View style={[styles.image, styles.placeholder, { backgroundColor: theme.app.imagePlaceholder }]}>
+        <View style={[styles.image, !description && styles.imageTall, styles.placeholder, { backgroundColor: theme.app.imagePlaceholder }]}>
           <Icon source="link-variant" size={26} color={theme.colors.onSurfaceVariant} />
         </View>
       )}
       <View style={styles.body}>
-        <Text numberOfLines={3} style={[styles.cardTitle, { color: theme.colors.onSurface, fontFamily: theme.fontFamily.display }]}>
-          {link.title?.trim() || link.siteName || link.url}
-        </Text>
-        <Text numberOfLines={1} style={[styles.site, { color: theme.colors.onSurfaceVariant, fontFamily: theme.fontFamily.medium }]}>
-          {link.siteName}
-        </Text>
+        <View style={{ gap: 4 }}>
+          <Text numberOfLines={3} style={[styles.cardTitle, { color: theme.colors.onSurface, fontFamily: theme.fontFamily.display }]}>
+            {title}
+          </Text>
+          {description ? (
+            <Text numberOfLines={title.length > 40 ? 1 : 3} style={[styles.desc, { color: theme.colors.onSurfaceVariant, fontFamily: theme.fontFamily.regular }]}>
+              {description}
+            </Text>
+          ) : null}
+        </View>
+        {showSite && (
+          <Text numberOfLines={1} style={[styles.site, { color: theme.colors.onSurfaceVariant, fontFamily: theme.fontFamily.medium }]}>
+            {site}
+          </Text>
+        )}
       </View>
     </Animated.View>
   );
@@ -314,10 +346,14 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  image: { width: "100%", aspectRatio: 4 / 3 },
+  image: { width: "100%", aspectRatio: 16 / 10 },
+  // Without a description the image takes the room, so short cards don't end in blank paper.
+  // 5:4 still leaves room for a three-line title and the site name.
+  imageTall: { aspectRatio: 5 / 4 },
   placeholder: { alignItems: "center", justifyContent: "center" },
   body: { flex: 1, padding: 10, justifyContent: "space-between" },
-  cardTitle: { fontSize: 13, lineHeight: 16 },
+  cardTitle: { fontSize: 14, lineHeight: 18 },
+  desc: { fontSize: 11, lineHeight: 15 },
   site: { fontSize: 10 },
   actions: { flexDirection: "row", justifyContent: "center" },
 });
