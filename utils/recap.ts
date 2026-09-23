@@ -1,5 +1,6 @@
 import type { Link } from "../types";
 import { daysSince, ownerIdOf, selectForgotten } from "./forgotten";
+import { siteLabel } from "./url";
 
 /**
  * Numbers for the weekly recap, from the links already on the device. "This
@@ -33,14 +34,6 @@ export interface WeeklyRecap {
   oldestForgotten: Link | null;
 }
 
-const hostname = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-};
-
 const startOfDay = (time: number) => {
   const d = new Date(time);
   d.setHours(0, 0, 0, 0);
@@ -73,11 +66,11 @@ export function buildWeeklyRecap(links: Link[], userId: string | undefined, now 
   });
   const busiest = days.reduce<RecapDay | null>((best, day) => (day.count > (best?.count ?? 0) ? day : best), null);
 
-  const sites = countBy(thisWeek, (link) => link.siteName?.trim() || hostname(link.url));
+  const sites = countBy(thisWeek, siteLabel);
   const [siteName, siteCount] = sites[0] ?? [];
   const topSite =
     siteName && siteCount && siteCount > 1
-      ? { name: siteName, count: siteCount, links: thisWeek.filter((l) => (l.siteName?.trim() || hostname(l.url)) === siteName) }
+      ? { name: siteName, count: siteCount, links: thisWeek.filter((l) => siteLabel(l) === siteName) }
       : null;
 
   const categories = countBy(thisWeek, (link) => link.category || "Other").map(([category, count]) => ({ category, count }));
