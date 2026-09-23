@@ -1,8 +1,15 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Animated, Image, Linking, Share, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 import { Card, Icon, IconButton, Text } from "react-native-paper";
-import Reanimated from "react-native-reanimated";
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 
 import { CATEGORY_LABELS } from "../constants";
 import { useAppTheme } from "../hooks/useAppTheme";
@@ -31,8 +38,24 @@ export default function LinkCard({
   hasReminder,
   layout = "list",
   index = 0,
+  highlight = false,
+  onOpened,
 }: LinkCardProps) {
   const theme = useAppTheme();
+  const reduceMotion = useReducedMotion();
+
+  // A just-saved link glows in the brand tint, then fades back to normal.
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (!highlight) return;
+    glow.value = reduceMotion
+      ? withSequence(withTiming(0.6, { duration: 0 }), withTiming(0, { duration: 2200 }))
+      : withSequence(
+          withTiming(0.75, { duration: theme.motion.base }),
+          withTiming(0, { duration: 2200, easing: Easing.out(Easing.quad) }),
+        );
+  }, [glow, highlight, reduceMotion, theme.motion.base]);
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
   const { animatedStyle, pressHandlers, hoverHandlers } = usePressAnimation({
     // Cards are large, so they need a gentler squeeze than a button does.
     pressScale: 0.985,
@@ -48,9 +71,9 @@ export default function LinkCard({
       return;
     }
 
-    Linking.openURL(safeUrl).catch(() =>
-      showAlert("Hata", "Bağlantı açılamadı."),
-    );
+    Linking.openURL(safeUrl)
+      .then(() => onOpened?.())
+      .catch(() => showAlert("Hata", "Bağlantı açılamadı."));
   };
 
   const handleShare = async () => {
@@ -388,6 +411,13 @@ export default function LinkCard({
                 </View>
               </View>
             )}
+            <Reanimated.View
+              pointerEvents="none"
+              style={[
+                { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.colors.primaryContainer },
+                glowStyle,
+              ]}
+            />
           </Card>
         </Reanimated.View>
       </Swipeable>

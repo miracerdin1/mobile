@@ -6,13 +6,20 @@ import Config from "../constants/Config";
 import { useAuth } from "../context/AuthContext";
 import { extractHttpUrl } from "../utils/url";
 import { showAlert } from "../utils/alert";
+import type { Link } from "../types";
 
-export function useClipboardPoller(onSaveSuccess: () => void) {
+/**
+ * `onSaveSuccess` receives the saved link. The prompt then stays open showing
+ * that link until `finishClipboardSave` is called, so the caller can animate
+ * it away; a caller that doesn't care can call it straight away.
+ */
+export function useClipboardPoller(onSaveSuccess: (link: Link) => void) {
   const { token, isAuthenticated } = useAuth();
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [showClipboardPrompt, setShowClipboardPrompt] = useState(false);
   const [savingClipboard, setSavingClipboard] = useState(false);
   const [clipboardFolderId, setClipboardFolderId] = useState<string | null>(null);
+  const [clipboardSavedLink, setClipboardSavedLink] = useState<Link | null>(null);
 
   const checkClipboard = useCallback(async (isManual: boolean = false) => {
     try {
@@ -62,15 +69,13 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
 
     setSavingClipboard(true);
     try {
-      await api.post(`${Config.API_URL}/api/links`, {
+      const response = await api.post<Link>(`${Config.API_URL}/api/links`, {
         url: clipboardUrl,
         folderId: clipboardFolderId,
       });
       await AsyncStorage.setItem("lastSavedClipboardUrl", clipboardUrl);
-      setShowClipboardPrompt(false);
-      setClipboardUrl(null);
-      setClipboardFolderId(null);
-      onSaveSuccess();
+      setClipboardSavedLink(response.data);
+      onSaveSuccess(response.data);
     } catch (error: any) {
       const errMsg = error.response?.data?.message || "Panodan bağlantı kaydedilemedi.";
       showAlert("Hata", errMsg);
@@ -78,6 +83,13 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
       setSavingClipboard(false);
     }
   }, [clipboardUrl, clipboardFolderId, isAuthenticated, onSaveSuccess]);
+
+  const finishClipboardSave = useCallback(() => {
+    setShowClipboardPrompt(false);
+    setClipboardUrl(null);
+    setClipboardFolderId(null);
+    setClipboardSavedLink(null);
+  }, []);
 
   const handleDismissClipboard = useCallback(async () => {
     if (clipboardUrl) {
@@ -99,5 +111,7 @@ export function useClipboardPoller(onSaveSuccess: () => void) {
     handleSaveClipboard,
     handleDismissClipboard,
     checkClipboard,
+    clipboardSavedLink,
+    finishClipboardSave,
   };
 }

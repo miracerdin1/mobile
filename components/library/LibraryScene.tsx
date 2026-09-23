@@ -1,10 +1,11 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import type { SharedValue } from "react-native-reanimated";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
+import { COVER_BAND, makeCoverTexture, makeSpineTexture } from "./bookTextures";
 import InkBackdrop from "./InkBackdrop";
 import {
   SHELF,
@@ -248,13 +249,24 @@ const BookMesh = React.forwardRef<
     () => new RoundedBoxGeometry(book.width, book.height, SHELF.bookDepth, 3, 0.025),
     [book.width, book.height],
   );
-  const coverMat = useRef<THREE.MeshStandardMaterial>(null);
+  const spineMap = useMemo(() => makeSpineTexture(book.color, palette.paper), [book.color, palette.paper]);
+  const coverMap = useMemo(() => makeCoverTexture(book.color, palette.paper), [book.color, palette.paper]);
+  useEffect(() => () => spineMap.dispose(), [spineMap]);
+  useEffect(() => () => coverMap.dispose(), [coverMap]);
 
-  // Cover: the link's preview image when it can be fetched, else the spine colour.
+  const coverWidth = SHELF.bookDepth - 0.03;
+  const coverHeight = book.height - 0.03;
+  /** The paper panel between the cover's colour bands, where a preview image sits. */
+  const panelHeight = coverHeight * (1 - COVER_BAND * 2);
+  const [image, setImage] = useState<THREE.Texture | null>(null);
+
+  // The link's preview image, fitted into the cover's paper panel. When it
+  // cannot be fetched (CORS on web, a dead URL) the plain banded cover stays.
   useEffect(() => {
     const url = book.link.imageUrl;
     if (!loadCover || !url || !/^https?:\/\//i.test(url)) return;
     let disposed = false;
+    let loaded: THREE.Texture | null = null;
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin("anonymous");
     loader.load(
@@ -265,25 +277,22 @@ const BookMesh = React.forwardRef<
           return;
         }
         texture.colorSpace = THREE.SRGBColorSpace;
-        // Cover-fit: crop the image to the cover's aspect instead of squashing.
+        // Cover-fit: crop the image to the panel's aspect instead of squashing.
         const img = texture.image as { width?: number; height?: number } | undefined;
-        const coverAspect = SHELF.bookDepth / book.height;
+        const panelAspect = coverWidth / panelHeight;
         if (img?.width && img?.height) {
           const imageAspect = img.width / img.height;
-          if (imageAspect > coverAspect) {
-            texture.repeat.set(coverAspect / imageAspect, 1);
-            texture.offset.set((1 - coverAspect / imageAspect) / 2, 0);
+          if (imageAspect > panelAspect) {
+            texture.repeat.set(panelAspect / imageAspect, 1);
+            texture.offset.set((1 - panelAspect / imageAspect) / 2, 0);
           } else {
-            texture.repeat.set(1, imageAspect / coverAspect);
-            texture.offset.set(0, (1 - imageAspect / coverAspect) / 2);
+            texture.repeat.set(1, imageAspect / panelAspect);
+            texture.offset.set(0, (1 - imageAspect / panelAspect) / 2);
           }
         }
-        if (coverMat.current) {
-          coverMat.current.map = texture;
-          coverMat.current.color.set("#ffffff");
-          coverMat.current.needsUpdate = true;
-          invalidate();
-        }
+        loaded = texture;
+        setImage(texture);
+        invalidate();
       },
       undefined,
       () => {
@@ -292,28 +301,34 @@ const BookMesh = React.forwardRef<
     );
     return () => {
       disposed = true;
+      loaded?.dispose();
+      setImage(null);
     };
-  }, [book.link.imageUrl, book.height, loadCover, invalidate]);
+  }, [book.link.imageUrl, coverWidth, panelHeight, loadCover, invalidate]);
 
   return (
     <group ref={ref} position={[book.x, shelfY + book.height / 2, 0]}>
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial color={palette.paper} roughness={0.85} />
       </mesh>
-      {/* Spine faces the viewer. */}
+      {/* Spine faces the viewer: binding colour with two paper bands. */}
       <mesh position={[0, 0, SHELF.bookDepth / 2 + 0.003]}>
         <planeGeometry args={[book.width - 0.03, book.height - 0.03]} />
-        <meshStandardMaterial color={book.color} roughness={0.55} />
-      </mesh>
-      <mesh position={[0, book.height * 0.28, SHELF.bookDepth / 2 + 0.006]}>
-        <planeGeometry args={[book.width * 0.55, 0.05]} />
-        <meshStandardMaterial color={palette.paper} roughness={0.8} />
+        <meshStandardMaterial map={spineMap} roughness={0.55} />
       </mesh>
       {/* Front cover on the +x face, seen once the book is pulled and turned. */}
-      <mesh position={[book.width / 2 + 0.003, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[SHELF.bookDepth - 0.03, book.height - 0.03]} />
-        <meshStandardMaterial ref={coverMat} color={book.color} roughness={0.5} />
-      </mesh>
+      <group position={[book.width / 2 + 0.003, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh>
+          <planeGeometry args={[coverWidth, coverHeight]} />
+          <meshStandardMaterial map={coverMap} roughness={0.5} />
+        </mesh>
+        {image && (
+          <mesh position={[0, 0, 0.002]}>
+            <planeGeometry args={[coverWidth, panelHeight]} />
+            <meshStandardMaterial map={image} roughness={0.5} />
+          </mesh>
+        )}
+      </group>
     </group>
   );
 });
