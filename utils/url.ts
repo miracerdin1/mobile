@@ -48,3 +48,15 @@ export const extractHttpUrl = (value: SharedLinkInput): string | null => {
   const sanitizedValue = matchedValue.replace(TRAILING_PUNCTUATION, "");
   return normalizeHttpUrl(sanitizedValue);
 };
+
+/** "instagram.com" for https://www.instagram.com/p/..., or null for a malformed URL. */
+export const hostOf = (url: string): string | null => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+};
+
+/** What to call a link's source: its site name, else its host. */
+export const siteLabel = (link: { url: string; siteName?: string }) => link.siteName?.trim() || hostOf(link.url) || "";

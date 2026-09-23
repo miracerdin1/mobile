@@ -6,6 +6,7 @@ import { touchTarget } from "../../constants/theme";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import type { Link } from "../../types";
 import { formatFullDate } from "../../utils/date";
+import { siteLabel } from "../../utils/url";
 import PrimaryButton from "../PrimaryButton";
 import { catalogNumber } from "./stage";
 
@@ -29,19 +30,11 @@ export interface LibraryCardProps {
 /** Turkish-aware capitals: RN's textTransform would turn "fişi" into "FIŞI". */
 const upper = (text: string) => text.toLocaleUpperCase("tr-TR");
 
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-};
-
 export default function LibraryCard({ link, shelfLabel, onClose, onEdit, onOpen, tilt }: LibraryCardProps) {
   const theme = useAppTheme();
   const added = formatFullDate(link.createdAt);
   const checked = formatFullDate(link.lastCheckedAt);
-  const source = link.siteName?.trim() || hostOf(link.url);
+  const source = siteLabel(link);
 
   const health = link.isBroken
     ? { text: checked ? `Açılmıyor, ${checked}` : "Açılmıyor", color: theme.colors.error }
