@@ -8,24 +8,34 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
+  Button,
   Surface,
   Text,
   TextInput,
 } from "react-native-paper";
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../hooks/useAppTheme";
 import Config from "../constants/Config";
 import api from "../services/api";
 import { AuthScreenProps } from "../types";
+import { withAlpha } from "../utils/color";
 import AmbientBackground from "./AmbientBackground";
+import FlowingCards from "./FlowingCards";
 import Logo from "./Logo";
 import PrimaryButton from "./PrimaryButton";
 import StaggerIn from "./StaggerIn";
 
 export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  // First the welcome (what the app does), then the form.
+  const [stage, setStage] = useState<"welcome" | "form">("welcome");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -115,6 +125,51 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   };
 
   const styles = makeStyles(theme);
+
+  const openForm = (login: boolean) => {
+    setIsLogin(login);
+    setError(null);
+    setStage("form");
+  };
+
+  if (stage === "welcome") {
+    const fadeTop = [theme.colors.background, withAlpha(theme.colors.background, "00")] as const;
+    const fadeBottom = [withAlpha(theme.colors.background, "00"), theme.colors.background, theme.colors.background] as const;
+    return (
+      <View style={[styles.welcome, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.flow, { top: insets.top + 64 }]}>
+          <FlowingCards />
+          <LinearGradient colors={fadeTop} style={styles.flowFadeTop} pointerEvents="none" />
+        </View>
+        <View style={[styles.welcomeTop, { paddingTop: insets.top + theme.spacing.md }]}>
+          <Logo size={30} />
+        </View>
+        <LinearGradient
+          colors={fadeBottom}
+          locations={[0, 0.32, 1]}
+          style={[styles.welcomeSheet, { paddingBottom: insets.bottom + theme.spacing.lg, paddingHorizontal: theme.spacing.lg }]}
+        >
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(theme.motion.slow).delay(150)} style={styles.welcomeCopy}>
+            <Text style={styles.welcomeTitle}>Kaydettiğin her şey yerli yerinde.</Text>
+            <Text style={styles.welcomeBody}>Bir link paylaş, kendi rafına yerleşsin. Unuttuklarını sana hatırlatalım.</Text>
+          </Animated.View>
+          <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(theme.motion.slow).delay(300)} style={styles.welcomeActions}>
+            <PrimaryButton onPress={() => openForm(false)}>Hesap oluştur</PrimaryButton>
+            <Button
+              mode="outlined"
+              onPress={() => openForm(true)}
+              textColor={theme.colors.onSurface}
+              style={{ borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface }}
+              contentStyle={{ minHeight: 48 }}
+              labelStyle={{ fontFamily: theme.fontFamily.semibold }}
+            >
+              Giriş yap
+            </Button>
+          </Animated.View>
+        </LinearGradient>
+      </View>
+    );
+  }
 
   return (
     <AmbientBackground intensity="vivid">
@@ -262,6 +317,27 @@ export default function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
 
 const makeStyles = (theme: ReturnType<typeof useAppTheme>) =>
   StyleSheet.create({
+    welcome: { flex: 1 },
+    flow: { position: "absolute", left: 0, right: 0, bottom: 0 },
+    // Starts under the column heads, so the heads stay crisp while cards fade out beneath them.
+    flowFadeTop: { position: "absolute", top: 30, left: 0, right: 0, height: 28 },
+    welcomeTop: { alignItems: "center" },
+    welcomeSheet: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 96, gap: theme.spacing.lg },
+    welcomeCopy: { gap: theme.spacing.sm, maxWidth: 480 },
+    welcomeTitle: {
+      fontFamily: theme.fontFamily.displayBold,
+      fontSize: 30,
+      lineHeight: 34,
+      letterSpacing: -0.4,
+      color: theme.colors.onBackground,
+    },
+    welcomeBody: {
+      fontFamily: theme.fontFamily.regular,
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.colors.onSurfaceVariant,
+    },
+    welcomeActions: { gap: theme.spacing.sm, maxWidth: 480 },
     container: {
       flex: 1,
       // AmbientBackground paints the background behind this layer.
