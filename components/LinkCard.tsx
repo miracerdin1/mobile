@@ -193,22 +193,22 @@ export default function LinkCard({
 
   const metaRow = (
     <View style={{ flexDirection: "row", alignItems: "center", marginTop: theme.spacing.xs, flexWrap: "wrap" }}>
-      {siteName && (
+      {!!siteName && (
         <Text variant="labelSmall" numberOfLines={1} style={{ color: theme.colors.onSurfaceVariant }}>
           {siteName}
         </Text>
       )}
-      {siteName && metaDate && (
+      {!!siteName && !!metaDate && (
         <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginHorizontal: 4 }}>
           ·
         </Text>
       )}
-      {metaDate && (
+      {!!metaDate && (
         <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
           {metaDate}
         </Text>
       )}
-      {folderName && (
+      {!!folderName && (
         <View
           style={{
             flexDirection: "row",
@@ -398,7 +398,7 @@ export default function LinkCard({
 
                   {isBroken && <View style={{ marginTop: theme.spacing.xs }}>{brokenBadge}</View>}
 
-                  {description && (
+                  {!!description && (
                     <Text variant="bodySmall" numberOfLines={2} style={{ color: theme.colors.onSurfaceVariant, marginTop: 2, marginBottom: theme.spacing.xs }}>
                       {description}
                     </Text>
