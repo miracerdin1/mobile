@@ -1,5 +1,6 @@
 import { CATEGORY_COLORS, CATEGORY_LABELS } from "../../constants";
 import type { Link } from "../../types";
+import { mixHex } from "../../utils/color";
 
 /** World-space dimensions of the shelving. */
 export const SHELF = {
@@ -11,6 +12,9 @@ export const SHELF = {
   margin: 0.6,
   /** A shelf is never narrower than this, so short folders still read as shelves. */
   minWidth: 6,
+  /** A category spills onto a new plank once a row would grow past this,
+   *  so one big folder never turns into an endless single-row pan. */
+  maxWidth: 10,
   bookGap: 0.06,
   bookDepth: 1.35,
   /** How far a pulled book slides toward the viewer, and how far it turns. */
@@ -48,7 +52,7 @@ export interface Book {
   x: number;
   width: number;
   height: number;
-  /** Spine colour when there is no cover image. */
+  /** Binding colour: this link's shade of its category colour. */
   color: string;
 }
 
@@ -77,11 +81,23 @@ export interface Library {
 /** Links whose category is missing or unknown shelve here. */
 export const FALLBACK_CATEGORY = "Other";
 
-const hash = (value: string) => {
+export const hash = (value: string) => {
   let h = 2166136261;
   for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 16777619);
   return h >>> 0;
 };
+
+/**
+ * A per-link shade of the category colour, so a shelf reads as separate
+ * books rather than one flat block. Uses hash bits the book size ignores.
+ */
+const bookTone = (color: string, h: number) => {
+  const r = ((h >>> 9) % 100) / 100;
+  return r < 0.5 ? mixHex(color, "#0E1422", r * 0.5) : mixHex(color, "#FFFFFF", (r - 0.5) * 0.45);
+};
+
+/** Catalogue number printed on the library card; stable per link. */
+export const catalogNumber = (linkId: string) => (hash(linkId) % 9000) + 1000;
 
 /**
  * Lays the archive out as shelving: one shelf per category in the user's
@@ -103,7 +119,7 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
   }
   const newestFirst = (a: Link, b: Link) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
 
-  const rows = order
+  const categoryRows = order
     .filter((category) => byCategory.has(category))
     .map((category) => ({
       id: category,
@@ -113,19 +129,64 @@ export function buildLibrary(categories: string[], links: Link[]): Library {
       links: (byCategory.get(category) ?? []).sort(newestFirst),
     }));
 
+  interface BookMeta {
+    link: Link;
+    width: number;
+    height: number;
+    hash: number;
+  }
+  interface PlankRow {
+    id: string;
+    category: string;
+    label: string;
+    color: string;
+    items: BookMeta[];
+  }
+
+  // A long category spills onto extra planks once a row would grow past
+  // SHELF.maxWidth, like a real shelf running out of room — this keeps any
+  // single row (and so any single horizontal pan) bounded. Only the first
+  // plank of a category carries its label; the rest read as its continuation.
+  const plankRows: PlankRow[] = [];
+  for (const row of categoryRows) {
+    const items: BookMeta[] = row.links.map((link) => {
+      const h = hash(link._id);
+      return { link, width: 0.34 + (h % 5) * 0.07, height: 1.55 + ((h >> 3) % 4) * 0.12, hash: h };
+    });
+    let chunk: BookMeta[] = [];
+    let cursor = 0;
+    let part = 0;
+    const flush = () => {
+      plankRows.push({ id: `${row.id}#${part}`, category: row.category, label: part === 0 ? row.label : "", color: row.color, items: chunk });
+      part += 1;
+      chunk = [];
+      cursor = 0;
+    };
+    for (const item of items) {
+      if (chunk.length && cursor + item.width + SHELF.margin * 2 > SHELF.maxWidth) flush();
+      chunk.push(item);
+      cursor += item.width + SHELF.bookGap;
+    }
+    if (chunk.length) flush();
+  }
+
   const shelves: Shelf[] = [];
   const books: Book[] = [];
   let maxWidth: number = SHELF.minWidth;
-  rows.forEach((row, shelfIndex) => {
-    const y = ((rows.length - 1) / 2 - shelfIndex) * SHELF.pitch;
+  plankRows.forEach((row, shelfIndex) => {
+    const y = ((plankRows.length - 1) / 2 - shelfIndex) * SHELF.pitch;
     const rowBooks: Book[] = [];
     let cursor = 0;
-    for (const link of row.links) {
-      const h = hash(link._id);
-      const width = 0.34 + (h % 5) * 0.07;
-      const height = 1.55 + ((h >> 3) % 4) * 0.12;
-      rowBooks.push({ link, shelfIndex, x: cursor + width / 2, width, height, color: row.color });
-      cursor += width + SHELF.bookGap;
+    for (const item of row.items) {
+      rowBooks.push({
+        link: item.link,
+        shelfIndex,
+        x: cursor + item.width / 2,
+        width: item.width,
+        height: item.height,
+        color: bookTone(row.color, item.hash),
+      });
+      cursor += item.width + SHELF.bookGap;
     }
     const rowWidth = Math.max(SHELF.minWidth, cursor - SHELF.bookGap + SHELF.margin * 2);
     // Books start at the shelf's left edge, after the margin.

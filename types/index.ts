@@ -28,11 +28,16 @@ export interface Link {
   category?: string;
   folderId?: string | null;
   isPublic?: boolean;
-  owner?: string;
+  /** The API populates this with the owner's id and username. */
+  owner?: string | { _id: string; username?: string };
   reminderScheduled?: boolean;
   createdAt?: string;
   isBroken?: boolean;
   lastCheckedAt?: string;
+  /** Last time the owner opened it from the app. */
+  openedAt?: string;
+  /** When the owner dismissed it from the forgotten-links wheel. */
+  dismissedAt?: string;
 }
 
 export interface Reminder {
@@ -149,4 +154,8 @@ export interface LinkCardProps {
   layout?: "list" | "grid";
   /** Position in the list, used to stagger the entrance animation. */
   index?: number;
+  /** Briefly tints the card: the link was just saved. */
+  highlight?: boolean;
+  /** Called after the link opened in the browser. */
+  onOpened?: () => void;
 }

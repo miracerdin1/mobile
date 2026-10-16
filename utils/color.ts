@@ -8,3 +8,14 @@ export const hexToRgb = (hex: string): [number, number, number] => {
   const n = parseInt(m[1], 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
+
+/** Linear blend of two `#rrggbb` colours, `t` = 0 → `a`, 1 → `b`. */
+export const mixHex = (a: string, b: string, t: number): string => {
+  const A = hexToRgb(a);
+  const B = hexToRgb(b);
+  const channel = (i: number) =>
+    Math.round((A[i] + (B[i] - A[i]) * t) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+};
