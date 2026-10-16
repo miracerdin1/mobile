@@ -30,6 +30,7 @@ import type { Link } from "../types";
 import { showAlert } from "../utils/alert";
 import { buildWeeklyRecap, daysSince, type WeeklyRecap } from "../utils/recap";
 import { isWeeklyRecapScheduled, scheduleWeeklyRecap } from "../utils/recapNotification";
+import { enableWebPush, webPushProblem } from "../utils/webPush";
 import { normalizeHttpUrl } from "../utils/url";
 
 /**
@@ -435,8 +436,6 @@ function SharePage({
     : `Bu hafta ${recap.total} link.`;
 
   useEffect(() => {
-    // Web has no local notifications, so it never offers the reminder.
-    if (Platform.OS === "web") return;
     isWeeklyRecapScheduled().then((on) => setReminder(on ? "on" : "off"));
   }, []);
 
@@ -464,6 +463,13 @@ function SharePage({
   };
 
   const remind = async () => {
+    // Web: enableWebPush must be the first await so iOS still shows the prompt.
+    if (Platform.OS === "web") {
+      const push = await enableWebPush({ recap: true });
+      setReminder(push.ok && push.recap ? "on" : "off");
+      if (push.ok === false) showAlert("Bildirimler açılamadı", webPushProblem(push.reason));
+      return;
+    }
     const on = await scheduleWeeklyRecap(true);
     setReminder(on ? "on" : "off");
     if (!on) showAlert("Bildirim izni yok", "Hatırlatma için telefon ayarlarından LinkFlow bildirimlerine izin ver.");

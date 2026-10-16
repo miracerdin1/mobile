@@ -1,4 +1,7 @@
 const CACHE_NAME = "linkflow-shell-v2";
+// Registered on localhost too (Web Push needs it), but never caches there: a
+// cached bundle would hide a restarting Metro dev server.
+const IS_LOCAL_DEV = ["localhost", "127.0.0.1"].includes(self.location.hostname);
 const CACHEABLE_DESTINATIONS = new Set([
   "font",
   "image",
@@ -37,7 +40,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
+  if (IS_LOCAL_DEV || request.method !== "GET") return;
 
   const requestUrl = new URL(request.url);
   if (requestUrl.origin !== self.location.origin) return;
@@ -73,5 +76,51 @@ self.addEventListener("fetch", (event) => {
 
         return Response.error();
       }),
+  );
+});
+
+// Web Push from the server (reminders, weekly recap). iOS revokes the
+// subscription if a push does not show a notification, so every push shows one.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "" };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "LinkFlow", {
+      body: payload.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: payload.tag,
+      data: { url: payload.url, route: payload.route },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const { url, route } = event.notification.data || {};
+
+  event.waitUntil(
+    (async () => {
+      // A saved link opens as is; anything else opens a screen of the app.
+      if (url && /^https?:\/\//i.test(url)) {
+        await self.clients.openWindow(url);
+        return;
+      }
+
+      const target = new URL(route || "/", self.location.origin).href;
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const appWindow = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (appWindow) {
+        await appWindow.focus();
+        if ("navigate" in appWindow) await appWindow.navigate(target).catch(() => {});
+        return;
+      }
+      await self.clients.openWindow(target);
+    })(),
   );
 });

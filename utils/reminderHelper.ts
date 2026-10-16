@@ -1,6 +1,8 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import Config from "../constants/Config";
+import apiClient from "../services/api";
+import { enableWebPush, setWebPushPrefs, webPushProblem } from "./webPush";
 
 /**
  * Calculates delay in seconds and descriptive Turkish text for various preset triggers
@@ -65,10 +67,11 @@ export function calculateReminderDelay(
 }
 
 /**
- * Request system permissions for Push Notifications (iOS / Android)
+ * Request system permissions for Push Notifications (iOS / Android).
+ * Web asks through enableWebPush instead, which also reports why it failed.
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (Platform.OS === "web") return true;
+  if (Platform.OS === "web") return (await enableWebPush()).ok;
   
   try {
     const { status } = await Notifications.getPermissionsAsync();
@@ -85,26 +88,24 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
 import { Link } from "../types";
 
+/** Web reminders are kept by the server; their id carries the link id. */
+const SERVER_REMINDER_PREFIX = "server:";
+export const serverReminderId = (linkId: string) => `${SERVER_REMINDER_PREFIX}${linkId}`;
+const WEB_SMART_ID = "web-smart";
+
 /**
- * Schedules a local push notification (or logs virtual scheduling for browser platforms)
+ * Schedules a local push notification. On web the server sends it as a Web Push
+ * (see utils/webPush.ts); call enableWebPush first.
  */
 export async function scheduleLocalNotification(
   link: Link,
   delaySeconds: number,
-  onWebNotificationTrigger?: (message: string, url: string) => void,
 ): Promise<string> {
   if (Platform.OS === "web") {
-    const notificationId = `web-${Date.now()}-${Math.random()}`;
-    
-    // Simulate notification on Web via setTimeout
-    setTimeout(() => {
-      const message = `Daha Sonra Oku 🔔\n\nKaydettiğin "${link.title || "bağlantıya"}" göz atmak ister misin?\n\nLink: ${link.url}`;
-      if (onWebNotificationTrigger) {
-        onWebNotificationTrigger(message, link.url);
-      }
-    }, delaySeconds * 1000);
-    
-    return notificationId;
+    await apiClient.put(`/api/push/reminders/${link._id}`, {
+      fireAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+    });
+    return serverReminderId(link._id);
   }
 
   return await Notifications.scheduleNotificationAsync({
@@ -124,8 +125,15 @@ export async function scheduleLocalNotification(
  * Cancels a scheduled local notification
  */
 export async function cancelLocalNotification(notificationId: string): Promise<void> {
-  if (Platform.OS === "web") return;
   if (!notificationId) return;
+  if (Platform.OS === "web") {
+    if (notificationId === WEB_SMART_ID) {
+      await setWebPushPrefs({ smart: false });
+    } else if (notificationId.startsWith(SERVER_REMINDER_PREFIX)) {
+      await apiClient.delete(`/api/push/reminders/${notificationId.slice(SERVER_REMINDER_PREFIX.length)}`);
+    }
+    return;
+  }
   
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
@@ -139,7 +147,9 @@ export async function cancelLocalNotification(notificationId: string): Promise<v
  */
 export async function scheduleSmartWeeklyNotification(): Promise<string> {
   if (Platform.OS === "web") {
-    return `web-smart-${Date.now()}`;
+    const push = await enableWebPush({ smart: true });
+    if (push.ok === false) throw new Error(webPushProblem(push.reason));
+    return WEB_SMART_ID;
   }
 
   return await Notifications.scheduleNotificationAsync({
