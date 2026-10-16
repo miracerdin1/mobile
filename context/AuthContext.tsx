@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Platform } from 'react-native';
 import { setAuthToken, setLogoutCallback } from '../services/api';
 import { clearStoredAuth, getStoredAuth, saveStoredAuth } from '../services/authStorage';
+import { disableWebPush } from '../utils/webPush';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -65,6 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      // Read from storage: this callback is registered once at mount, so its `token` is stale.
+      if (Platform.OS === 'web') await disableWebPush((await getStoredAuth()).token);
       await clearStoredAuth();
       setToken(null);
       setAuthToken(null);

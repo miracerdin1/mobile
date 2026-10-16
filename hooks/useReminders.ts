@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Platform, Alert } from "react-native";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Link, Reminder } from "~/types";
@@ -9,10 +9,15 @@ import {
   scheduleLocalNotification,
   cancelLocalNotification,
   scheduleSmartWeeklyNotification,
+  serverReminderId,
 } from "../utils/reminderHelper";
-import { normalizeHttpUrl } from "../utils/url";
+import { enableWebPush, getWebPushPrefs, webPushProblem } from "../utils/webPush";
+import { showAlert } from "../utils/alert";
+import apiClient from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 export function useReminders() {
+  const { isAuthenticated } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [reminderDialogVisible, setReminderDialogVisible] = useState(false);
   const [selectedReminderLink, setSelectedReminderLink] = useState<Link | null>(
@@ -31,16 +36,14 @@ export function useReminders() {
     const setupNotifications = async () => {
       try {
         if (Platform.OS === "web") {
-          const storedReminders = await AsyncStorage.getItem("activeReminders");
-          if (storedReminders) {
-            setReminders(JSON.parse(storedReminders));
-          }
-          const storedSmart = await AsyncStorage.getItem(
-            "smartRemindersEnabled",
+          // The server holds web reminders (it sends them), so it is the source of truth.
+          if (!isAuthenticated) return;
+          const { data } = await apiClient.get<{ linkId: string }[]>("/api/push/reminders");
+          setReminders(
+            data.map((r) => ({ linkId: r.linkId, notificationId: serverReminderId(r.linkId) })),
           );
-          if (storedSmart) {
-            setSmartRemindersEnabled(JSON.parse(storedSmart));
-          }
+          const prefs = await getWebPushPrefs();
+          setSmartRemindersEnabled(prefs?.smart ?? false);
           return;
         }
 
@@ -67,7 +70,7 @@ export function useReminders() {
     };
 
     setupNotifications();
-  }, []);
+  }, [isAuthenticated]);
 
   const handleScheduleReminder = useCallback(
     async (
@@ -82,10 +85,16 @@ export function useReminders() {
       customDate?: Date,
     ) => {
       try {
-        // 1. Request permissions (Native only)
-        const hasPermission = await requestNotificationPermissions();
-        if (!hasPermission) {
-          Alert.alert(
+        // 1. Request permissions. On web this must be the first await: iOS
+        // only shows the prompt while the tap still counts as a user gesture.
+        if (Platform.OS === "web") {
+          const push = await enableWebPush();
+          if (push.ok === false) {
+            showAlert("Bildirimler açılamadı", webPushProblem(push.reason));
+            return;
+          }
+        } else if (!(await requestNotificationPermissions())) {
+          showAlert(
             "İzin Gerekli",
             "Hatırlatıcı eklemek için bildirim izinlerini onaylamanız gerekmektedir.",
           );
@@ -100,7 +109,7 @@ export function useReminders() {
           delaySeconds = delayResult.delaySeconds;
           delayText = delayResult.delayText;
         } catch (err: any) {
-          Alert.alert(
+          showAlert(
             "Geçersiz Zaman",
             err.message || "Lütfen gelecekteki bir tarih ve saat seçin.",
           );
@@ -113,21 +122,8 @@ export function useReminders() {
           await cancelLocalNotification(existing.notificationId);
         }
 
-        // 4. Schedule local notification / Web simulated notification
-        const notificationId = await scheduleLocalNotification(
-          link,
-          delaySeconds,
-          Platform.OS === "web"
-            ? (message, url) => {
-                if (confirm(message)) {
-                  const safeUrl = normalizeHttpUrl(url);
-                  if (!safeUrl) return;
-
-                  window.open(safeUrl, "_blank", "noopener,noreferrer");
-                }
-              }
-            : undefined,
-        );
+        // 4. Schedule local notification (web: the server sends a push)
+        const notificationId = await scheduleLocalNotification(link, delaySeconds);
 
         // 5. Update state and AsyncStorage
         const updatedReminders = reminders.filter((r) => r.linkId !== link._id);
@@ -143,13 +139,13 @@ export function useReminders() {
         );
         setReminderDialogVisible(false);
 
-        Alert.alert(
+        showAlert(
           "Hatırlatıcı Kuruldu 🔔",
           `"${link.title || "Bağlantı"}" için hatırlatıcı ${delayText} çalışacak şekilde başarıyla ayarlandı.`,
         );
       } catch (error) {
         console.error("Failed to schedule reminder:", error);
-        Alert.alert("Hata", "Hatırlatıcı kurulurken bir hata oluştu.");
+        showAlert("Hata", "Hatırlatıcı kurulurken bir hata oluştu.");
       }
     },
     [reminders],
@@ -171,10 +167,10 @@ export function useReminders() {
         }
 
         setReminderDialogVisible(false);
-        Alert.alert("İptal Edildi 🔕", "Hatırlatıcı başarıyla iptal edildi.");
+        showAlert("İptal Edildi 🔕", "Hatırlatıcı başarıyla iptal edildi.");
       } catch (error) {
         console.error("Failed to cancel reminder:", error);
-        Alert.alert("Hata", "Hatırlatıcı iptal edilirken bir hata oluştu.");
+        showAlert("Hata", "Hatırlatıcı iptal edilirken bir hata oluştu.");
       }
     },
     [reminders],
@@ -182,6 +178,24 @@ export function useReminders() {
 
   const handleToggleSmartReminders = useCallback(async (enabled: boolean) => {
     try {
+      if (Platform.OS === "web") {
+        // Turning it on may prompt, so it goes first (see handleScheduleReminder).
+        if (enabled) {
+          await scheduleSmartWeeklyNotification();
+        } else {
+          await cancelLocalNotification("web-smart");
+        }
+        setSmartRemindersEnabled(enabled);
+        await AsyncStorage.setItem("smartRemindersEnabled", JSON.stringify(enabled));
+        showAlert(
+          enabled ? "Akıllı Hatırlatıcı Aktif 🔔" : "Devre Dışı Bırakıldı 🔕",
+          enabled
+            ? "Her Pazartesi 09:00'da okuma listen için bildirim gelecek."
+            : "Akıllı okuma hatırlatıcıları kapatıldı.",
+        );
+        return;
+      }
+
       setSmartRemindersEnabled(enabled);
       await AsyncStorage.setItem(
         "smartRemindersEnabled",
@@ -199,18 +213,19 @@ export function useReminders() {
       if (enabled) {
         const notificationId = await scheduleSmartWeeklyNotification();
         await AsyncStorage.setItem("smartNotificationId", notificationId);
-        Alert.alert(
+        showAlert(
           "Akıllı Hatırlatıcı Aktif 🔔",
           "Haftalık akıllı okuma listesi önerileri başarıyla etkinleştirildi!",
         );
       } else {
-        Alert.alert(
+        showAlert(
           "Devre Dışı Bırakıldı 🔕",
           "Akıllı okuma hatırlatıcıları kapatıldı.",
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Smart reminder toggle failed:", error);
+      if (Platform.OS === "web") showAlert("Bildirimler açılamadı", error?.message || webPushProblem("server"));
     }
   }, []);
 

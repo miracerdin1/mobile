@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+  Template for `expo export` with web.output "single". In this mode Expo
+  ignores app/+html.tsx, so the PWA tags (manifest, Apple meta, service worker)
+  must live here. Without them iPhone's "Add to Home Screen" does not open
+  LinkFlow as an app, and Web Push never works. Keep in sync with +html.tsx.
+-->
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>LinkFlow</title>
+    <meta name="theme-color" content="#3157D5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LinkFlow" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="description" content="Bağlantılarını kaydet, düzenle ve istediğin zaman yeniden bul." />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+    <script src="/register-sw.js" defer></script>
+  </head>
+
+  <body>
+    <noscript>LinkFlow'u kullanmak için JavaScript'i etkinleştirin.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

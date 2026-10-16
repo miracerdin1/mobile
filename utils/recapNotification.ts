@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { requestNotificationPermissions } from "./reminderHelper";
+import { enableWebPush, getWebPushPrefs, syncWebPush } from "./webPush";
 
 /** Fixed id: scheduling again replaces the previous one instead of stacking. */
 const RECAP_ID = "weekly-recap";
@@ -12,9 +13,18 @@ export const RECAP_ROUTE = "/recap";
  * Sunday 19:00, every week. With `askPermission` false this only schedules
  * when notifications are already allowed, so app start never prompts.
  * Returns whether the reminder is now scheduled.
+ * On web the server sends it as a Web Push; without `askPermission` this only
+ * refreshes an existing subscription and keeps its settings.
  */
 export async function scheduleWeeklyRecap(askPermission: boolean): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  if (Platform.OS === "web") {
+    if (askPermission) {
+      const push = await enableWebPush({ recap: true });
+      return push.ok && push.recap;
+    }
+    await syncWebPush();
+    return (await getWebPushPrefs())?.recap ?? false;
+  }
   try {
     const { status } = await Notifications.getPermissionsAsync();
     const allowed = status === "granted" || (askPermission && (await requestNotificationPermissions()));
@@ -41,7 +51,7 @@ export async function scheduleWeeklyRecap(askPermission: boolean): Promise<boole
 }
 
 export async function isWeeklyRecapScheduled(): Promise<boolean> {
-  if (Platform.OS === "web") return false;
+  if (Platform.OS === "web") return (await getWebPushPrefs())?.recap ?? false;
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     return scheduled.some((n) => n.identifier === RECAP_ID);
